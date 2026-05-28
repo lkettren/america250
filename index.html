@@ -8,7 +8,6 @@
 <style>
 :root {
   --bg: #012249;
-  --panel: #012249;
   --text: #ffffff;
 }
 
@@ -36,20 +35,9 @@ body {
   display: block;
 }
 
-/* Invisible overlay */
+/* OVERLAY BASE */
 .zone {
-  fill: transparent;
-  stroke: transparent;
   cursor: pointer;
-}
-
-/* Optional subtle feedback (can remove if you want ZERO visual change) */
-.zone:hover {
-  fill: rgba(255,255,255,0.05);
-}
-
-.zone.selected {
-  fill: rgba(255,255,255,0.1);
 }
 
 /* Panel */
@@ -62,7 +50,6 @@ body {
 
 .panel h2 {
   margin-top: 0;
-  color: #ffffff;
 }
 
 /* Controls */
@@ -89,10 +76,6 @@ button:hover {
   background: rgba(255,255,255,0.1);
 }
 
-/* Text overrides */
-p, li, span, dt, dd {
-  color: #ffffff;
-}
 </style>
 </head>
 
@@ -110,9 +93,10 @@ p, li, span, dt, dd {
       </select>
     </div>
 
-    <img src="A250 Map Online Version.png">
+    <img src="floorplan.png">
 
-    <svg id="overlay" viewBox="0 0 1544 2000" style="position:absolute;top:0;left:0;width:100%;height:100%"></svg>
+    <svg id="overlay" viewBox="0 0 1544 2000"
+         style="position:absolute;top:0;left:0;width:100%;height:100%"></svg>
 
   </div>
 
@@ -126,7 +110,14 @@ p, li, span, dt, dd {
 
 <script>
 
-// Layout positions (tuned for your image)
+/* ==========================================================
+   ✅ TOGGLE THIS
+   ========================================================== */
+const SHOW_OVERLAY = true;
+
+/* ==========================================================
+   Layout positions
+   ========================================================== */
 const layout = {
   A: { x: 510, y: 550, w: 55, h: 34, rows: 18 },
   B: { x: 680, y: 620, w: 56, h: 34, rows: 16 },
@@ -137,10 +128,28 @@ const layout = {
 const zones = {};
 const svg = document.getElementById("overlay");
 
-// Generate booth grid
+/* ==========================================================
+   Apply overlay styling based on toggle
+   ========================================================== */
+function applyOverlayStyle(rect) {
+  if (SHOW_OVERLAY) {
+    rect.setAttribute("fill", "rgba(255,255,255,0.15)");
+    rect.setAttribute("stroke", "#ffffff");
+    rect.setAttribute("stroke-width", "1");
+  } else {
+    rect.setAttribute("fill", "transparent");
+    rect.setAttribute("stroke", "transparent");
+  }
+}
+
+/* ==========================================================
+   Generate booths
+   ========================================================== */
 function generate(section) {
   let s = layout[section];
+
   for (let i = 0; i < s.rows; i++) {
+
     let num = s.rows - i;
     let id = section + num;
 
@@ -150,6 +159,8 @@ function generate(section) {
     rect.setAttribute("y", s.y + (i * s.h));
     rect.setAttribute("width", s.w);
     rect.setAttribute("height", s.h);
+
+    applyOverlayStyle(rect);
 
     rect.classList.add("zone");
     rect.dataset.id = id;
@@ -167,7 +178,9 @@ function generate(section) {
 
 ["A","B","C","D"].forEach(generate);
 
-// Custom data (edit here)
+/* ==========================================================
+   Custom assignments (edit here)
+   ========================================================== */
 Object.assign(zones, {
   REGISTRATION: {
     title: "Registration",
@@ -179,16 +192,22 @@ Object.assign(zones, {
   }
 });
 
+/* ==========================================================
+   Selection logic
+   ========================================================== */
 let selected = null;
 
 function select(id) {
 
   selected = id;
 
-  document.querySelectorAll(".zone").forEach(z => z.classList.remove("selected"));
-
-  let el = document.querySelector(`[data-id='${id}']`);
-  if (el) el.classList.add("selected");
+  document.querySelectorAll(".zone").forEach(z => {
+    if (SHOW_OVERLAY && z.dataset.id === id) {
+      z.setAttribute("fill", "rgba(255,255,255,0.3)");
+    } else {
+      applyOverlayStyle(z);
+    }
+  });
 
   let data = zones[id] || { title: id, desc: "No data" };
 
@@ -198,7 +217,9 @@ function select(id) {
   location.hash = id;
 }
 
-// Search
+/* ==========================================================
+   Search
+   ========================================================== */
 document.getElementById("search").oninput = (e) => {
   let val = e.target.value.toLowerCase();
 
@@ -212,7 +233,9 @@ document.getElementById("search").oninput = (e) => {
   });
 };
 
-// Jump dropdown
+/* ==========================================================
+   Jump dropdown
+   ========================================================== */
 let jump = document.getElementById("jump");
 
 Object.keys(zones).sort().forEach(id => {
@@ -226,7 +249,9 @@ jump.onchange = () => {
   if (jump.value) select(jump.value);
 };
 
-// Load hash
+/* ==========================================================
+   Load from URL hash
+   ========================================================== */
 if (location.hash) {
   let id = location.hash.replace("#","");
   if (zones[id]) select(id);
@@ -236,3 +261,4 @@ if (location.hash) {
 
 </body>
 </html>
+``
