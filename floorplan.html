@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pinewood Derby Map</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: Arial;
+  }
+
+  .container {
+    display: flex;
+  }
+
+  .map-container {
+    position: relative;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Right-side panel */
+  #panel {
+    width: 300px;
+    padding: 15px;
+    background: #f4f4f4;
+    border-left: 2px solid #ccc;
+  }
+
+  #panel h3 {
+    margin-top: 0;
+  }
+
+  /* Highlight overlay */
+  .highlight {
+    position: absolute;
+    border: 2px solid red;
+    pointer-events: none;
+  }
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- MAP -->
+  <div class="map-container">
+
+    <img src="floorplan.png" usemap="#map">
+
+    <div id="highlight" class="highlight" style="display:none;"></div>
+
+    <map name="map">
+
+      <!-- SAMPLE BOOTHS -->
+      <area shape="rect" coords="430,750,480,800" onclick="showBooth(event, 'A1')">
+      <area shape="rect" coords="430,700,480,750" onclick="showBooth(event, 'A2')">
+
+      <area shape="rect" coords="580,750,630,800" onclick="showBooth(event, 'B1')">
+      <area shape="rect" coords="580,700,630,750" onclick="showBooth(event, 'B2')">
+
+      <area shape="rect" coords="650,750,700,800" onclick="showBooth(event, 'C1')">
+      <area shape="rect" coords="650,700,700,750" onclick="showBooth(event, 'C2')">
+
+      <area shape="rect" coords="800,750,850,800" onclick="showBooth(event, 'D1')">
+      <area shape="rect" coords="800,700,850,750" onclick="showBooth(event, 'D2')">
+
+      <!-- Continue pattern for all booths -->
+
+    </map>
+
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div id="panel">
+    <h3>Booth Details</h3>
+    <p>Click a booth to view info</p>
+  </div>
+
+</div>
+
+<script>
+
+const boothData = {
+  "A1": {
+    title: "Pack 123",
+    description: "Tiger Den",
+    notes: "Near VIP area"
+  },
+  "A2": {
+    title: "Pack 456",
+    description: "Wolf Den",
+    notes: ""
+  },
+  "B1": {
+    title: "Scout Shop",
+    description: "Official merch",
+    notes: "Cash & card accepted"
+  },
+  "D1": {
+    title: "Pack 789",
+    description: "Bear Den",
+    notes: ""
+  }
+};
+
+function showBooth(event, boothId) {
+
+  const panel = document.getElementById("panel");
+  const data = boothData[boothId];
+
+  if (!data) {
+    panel.innerHTML = "<h3>" + boothId + "</h3><p>No data assigned</p>";
+  } else {
+    panel.innerHTML = `
+      <h3>${boothId} - ${data.title}</h3>
+      <p><strong>Description:</strong> ${data.description}</p>
+      <p><strong>Notes:</strong> ${data.notes}</p>
+    `;
+  }
+
+  // Highlight selected area
+  const coords = event.target.coords.split(",");
+  const highlight = document.getElementById("highlight");
+
+  highlight.style.left = coords[0] + "px";
+  highlight.style.top = coords[1] + "px";
+  highlight.style.width = (coords[2] - coords[0]) + "px";
+  highlight.style.height = (coords[3] - coords[1]) + "px";
+
+  highlight.style.display = "block";
+}
+
+</script>
+
+</body>
+</html>
