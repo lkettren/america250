@@ -765,40 +765,91 @@ mapWrapper.addEventListener("touchmove", e => {
        Demo Zones
        ========================================================== */
 
-    function buildZones() {
+function buildZones() {
 
-      zones.clear();
+  zones.clear();
 
-      zones.set("A1", {
-        id: "A1",
-        title: "Booth A1",
-        section: "A",
-        description: "Sample booth description.",
+  const layout = {
+    A: { x: 510, y: 550, w: 55, h: 34, rows: 18 },
+    B: { x: 680, y: 620, w: 56, h: 34, rows: 16 },
+    C: { x: 740, y: 550, w: 56, h: 34, rows: 18 },
+    D: { x: 910, y: 550, w: 56, h: 34, rows: 18 }
+  };
+
+  const pad = 2;
+
+  // -------- Booths --------
+  ["A","B","C","D"].forEach(section => {
+
+    const s = layout[section];
+
+    for (let i = 0; i < s.rows; i++) {
+
+      const num = s.rows - i;
+      const id = section + num;
+
+      zones.set(id, {
+        id,
+        title: id,
+        section,
+        description: `Booth ${id}`,
         status: "Open",
-
         coords: {
-          x: 515,
-          y: 1205,
-          w: 59,
-          h: 38
-        }
-      });
-
-      zones.set("REGISTRATION", {
-        id: "REGISTRATION",
-        title: "Registration",
-        section: "North Entrance",
-        description: "Main event check-in area.",
-        status: "Feature",
-
-        coords: {
-          x: 589,
-          y: 145,
-          w: 296,
-          h: 101
+          x: s.x - pad,
+          y: (s.y + (i * s.h)) - pad,
+          w: s.w + (pad * 2),
+          h: s.h + (pad * 2)
         }
       });
     }
+  });
+
+  // -------- Features --------
+  zones.set("REGISTRATION", {
+    id: "REGISTRATION",
+    title: "Registration",
+    section: "North Entrance",
+    description: "Main check-in area.",
+    status: "Feature",
+    coords: { x: 589, y: 145, w: 296, h: 101 }
+  });
+
+  zones.set("FIRST_AID", {
+    id: "FIRST_AID",
+    title: "First Aid",
+    section: "Northwest",
+    description: "Medical support area.",
+    status: "Feature",
+    coords: { x: 451, y: 154, w: 90, h: 87 }
+  });
+
+  zones.set("EVENT_STAGE", {
+    id: "EVENT_STAGE",
+    title: "Event Stage",
+    section: "South Center",
+    description: "Main stage area.",
+    status: "Feature",
+    coords: { x: 606, y: 1456, w: 451, h: 362 }
+  });
+
+  zones.set("RESTROOM_NORTH", {
+    id: "RESTROOM_NORTH",
+    title: "Restrooms (North)",
+    section: "Northeast",
+    description: "North restroom area.",
+    status: "Feature",
+    coords: { x: 906, y: 150, w: 115, h: 94 }
+  });
+
+  zones.set("RESTROOM_SOUTH", {
+    id: "RESTROOM_SOUTH",
+    title: "Restrooms (South)",
+    section: "South Entrance",
+    description: "South restroom area.",
+    status: "Feature",
+    coords: { x: 757, y: 1831, w: 110, h: 110 }
+  });
+}
 
     /* ==========================================================
        Drawing
