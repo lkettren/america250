@@ -887,7 +887,7 @@
   }
 
   function populateJumpMenu() {
-    jumpMenu.innerHTML = `<option value="">Jump to booth or feature</option>`;
+    jumpMenu.innerHTML = `<option value="">Pick a Booth</option>`;
 
     [...zones.values()]
       .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
