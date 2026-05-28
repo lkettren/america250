@@ -445,542 +445,845 @@
   </section>
 
   <script>
-    /* ==========================================================
-       TOGGLES
-       ========================================================== */
+  /* ==========================================================
+     TOGGLES
+     ========================================================== */
+  const SHOW_OVERLAY = true;
+  const EDITOR_MODE = false;
+  const ZONES_CSV_URL = "zones.csv";
 
-    const SHOW_OVERLAY = true;
-    const EDITOR_MODE = false;
+  /* ==========================================================
+     CONSTANTS
+     ========================================================== */
+  const MOBILE_HIT_PADDING = 8;
+  const DESKTOP_HIT_PADDING = 2;
 
-    /* ==========================================================
-       Constants
-       ========================================================== */
+  const MOBILE_FEATURE_PADDING = 14;
+  const DESKTOP_FEATURE_PADDING = 6;
 
-    const MOBILE_HIT_PADDING = 8;
-    const DESKTOP_HIT_PADDING = 2;
+  const MIN_ZONE_SIZE = 20;
+  const HANDLE_SIZE = 18;
 
-    const MOBILE_FEATURE_PADDING = 14;
-    const DESKTOP_FEATURE_PADDING = 6;
+  const IMAGE_WIDTH = 1544;
+  const IMAGE_HEIGHT = 2000;
 
-    const MIN_ZONE_SIZE = 20;
-    const HANDLE_SIZE = 18;
+  /* ==========================================================
+     DOM
+     ========================================================== */
+  const mapWrapper = document.getElementById("mapWrapper");
+  const zoomLayer = document.getElementById("zoomLayer");
+  const mapImage = document.getElementById("mapImage");
+  const svg = document.getElementById("overlay");
 
-    const IMAGE_WIDTH = 1544;
-    const IMAGE_HEIGHT = 2000;
+  const searchBox = document.getElementById("searchBox");
+  const jumpMenu = document.getElementById("jumpMenu");
 
-    /* ==========================================================
-       DOM
-       ========================================================== */
+  const clearBtn = document.getElementById("clearBtn");
+  const copyLayoutBtn = document.getElementById("copyLayoutBtn");
 
-    const svg = document.getElementById("overlay");
+  const statusBar = document.getElementById("statusBar");
 
-    const searchBox = document.getElementById("searchBox");
-    const jumpMenu = document.getElementById("jumpMenu");
+  const modalSheet = document.getElementById("modalSheet");
+  const closeModalBtn = document.getElementById("closeModalBtn");
 
-    const clearBtn = document.getElementById("clearBtn");
-    const copyLayoutBtn = document.getElementById("copyLayoutBtn");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalSubtitle = document.getElementById("modalSubtitle");
+  const modalBody = document.getElementById("modalBody");
 
-    const statusBar = document.getElementById("statusBar");
+  /* ==========================================================
+     STATE
+     ========================================================== */
+  const zones = new Map();
 
-    const modalSheet = document.getElementById("modalSheet");
-    const closeModalBtn = document.getElementById("closeModalBtn");
+  let currentSelection = "";
+  let dragState = null;
+  let momentumFrame = null;
+  let suppressTapUntil = 0;
 
-    const modalTitle = document.getElementById("modalTitle");
-    const modalSubtitle = document.getElementById("modalSubtitle");
-    const modalBody = document.getElementById("modalBody");
+  const zoomState = {
+    scale: 1,
+    minScale: 1,
+    maxScale: 4,
+    x: 0,
+    y: 0,
 
-    /* ==========================================================
-       State
-       ========================================================== */
+    isPinching: false,
+    isPanning: false,
 
-    const zones = new Map();
+    startDistance: 0,
+    startScale: 1,
 
-    let currentSelection = "";
-    let dragState = null;
+    panStartClientX: 0,
+    panStartClientY: 0,
+    panOriginX: 0,
+    panOriginY: 0,
 
-    
-const mapWrapper = document.getElementById("mapWrapper");
-const zoomLayer = document.getElementById("zoomLayer");
-const mapImage = document.getElementById("mapImage");
+    lastClientX: 0,
+    lastClientY: 0,
+    lastTime: 0,
 
-let suppressTapUntil = 0;
+    velX: 0,
+    velY: 0,
 
-let zState = {
-  scale: 1,
-  x: 0,
-  y: 0,
-  startDist: 0,
-  startScale: 1,
-  panStartX: 0,
-  panStartY: 0,
-  lastX: 0,
-  lastY: 0,
-  lastT: 0,
-  vx: 0,
-  vy: 0,
-  moved: false
-};
+    moved: false,
+    lastTapTime: 0
+  };
 
-function applyZoom() {
-  zoomLayer.style.transform =
-    `translate(${zState.x}px,${zState.y}px) scale(${zState.scale})`;
-}
-
-function dist(a,b){
-  return Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
-}
-
-mapWrapper.addEventListener("touchstart", e => {
-  if (e.touches.length === 2) {
-    zState.startDist = dist(e.touches[0], e.touches[1]);
-    zState.startScale = zState.scale;
+  /* ==========================================================
+     HELPERS
+     ========================================================== */
+  function isMobileView() {
+    return window.matchMedia("(max-width: 900px)").matches;
   }
 
-  if (e.touches.length === 1 && zState.scale > 1) {
-    const t = e.touches[0];
-    zState.panStartX = t.clientX - zState.x;
-    zState.panStartY = t.clientY - zState.y;
-
-    zState.lastX = t.clientX;
-    zState.lastY = t.clientY;
-    zState.lastT = performance.now();
-    zState.vx = 0;
-    zState.vy = 0;
-    zState.moved = false;
-  }
-}, { passive:false });
-
-mapWrapper.addEventListener("touchmove", e => {
-
-  if (e.touches.length === 2) {
-    e.preventDefault();
-    const d = dist(e.touches[0], e.touches[1]);
-    zState.scale = Math.min(4, Math.max(1, zState.startScale * (d / zState.startDist)));
-    applyZoom();
+  function getBoothHitPadding() {
+    return isMobileView() ? MOBILE_HIT_PADDING : DESKTOP_HIT_PADDING;
   }
 
-  if (e.touches.length === 1 && zState.scale > 1) {
-    e.preventDefault();
-
-    const t = e.touches[0];
-    const now = performance.now();
-    const dt = now - zState.lastT;
-
-    zState.x = t.clientX - zState.panStartX;
-    zState.y = t.clientY - zState.panStartY;
-
-    zState.vx = (t.clientX - zState.lastX) / dt * 16;
-    zState.vy = (t.clientY - zState.lastY) / dt * 16;
-
-    zState.lastX = t.clientX;
-    zState.lastY = t.clientY;
-    zState.lastT = now;
-
-    zState.moved = true;
-
-    applyZoom();
+  function getFeatureHitPadding() {
+    return isMobileView() ? MOBILE_FEATURE_PADDING : DESKTOP_FEATURE_PADDING;
   }
 
-}, { passive:false });
+  function shouldShowOverlay() {
+    return SHOW_OVERLAY || EDITOR_MODE;
+  }
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
 
-    /* ==========================================================
-       Helpers
-       ========================================================== */
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
 
-    function isMobileView() {
-      return window.matchMedia("(max-width: 900px)").matches;
-    }
+  /* ==========================================================
+     CSV HELPERS
+     ========================================================== */
+  function parseCsvLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
 
-    function getBoothHitPadding() {
-      return isMobileView()
-        ? MOBILE_HIT_PADDING
-        : DESKTOP_HIT_PADDING;
-    }
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      const next = line[i + 1];
 
-    function getFeatureHitPadding() {
-      return isMobileView()
-        ? MOBILE_FEATURE_PADDING
-        : DESKTOP_FEATURE_PADDING;
-    }
-
-    function shouldShowOverlay() {
-      return SHOW_OVERLAY || EDITOR_MODE;
-    }
-
-
-    function escapeHtml(value) {
-      return String(value || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
-
-    /* ==========================================================
-       Zone Styling
-       ========================================================== */
-
-    function getZoneStyle(isSelected = false) {
-
-      if (shouldShowOverlay()) {
-        return {
-          fill: isSelected
-            ? "var(--selected-fill)"
-            : "var(--overlay-fill)",
-
-          stroke: isSelected
-            ? "var(--selected-stroke)"
-            : "var(--overlay-stroke)",
-
-          strokeWidth: isSelected ? "2" : "1"
-        };
+      if (ch === '"' && inQuotes && next === '"') {
+        current += '"';
+        i++;
+        continue;
       }
 
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+
+      if (ch === "," && !inQuotes) {
+        result.push(current);
+        current = "";
+        continue;
+      }
+
+      current += ch;
+    }
+
+    result.push(current);
+    return result.map(v => v.trim());
+  }
+
+  function csvValue(row, idx) {
+    return idx >= 0 ? (row[idx] ?? "") : "";
+  }
+
+  function toNumber(value, fallback = 0) {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  /* ==========================================================
+     ZONE STYLING
+     ========================================================== */
+  function getZoneStyle(isSelected = false) {
+    if (shouldShowOverlay()) {
       return {
-        fill: "transparent",
-        stroke: "transparent",
-        strokeWidth: "0"
+        fill: isSelected
+          ? "var(--selected-fill)"
+          : "var(--overlay-fill)",
+        stroke: isSelected
+          ? "var(--selected-stroke)"
+          : "var(--overlay-stroke)",
+        strokeWidth: isSelected ? "2" : "1"
       };
     }
 
-    function applyZoneStyle(group, isSelected = false) {
+    return {
+      fill: "transparent",
+      stroke: "transparent",
+      strokeWidth: "0"
+    };
+  }
 
-      const rect = group.querySelector(".zone");
-      const handle = group.querySelector(".resize-handle");
-      const label = group.querySelector(".zone-label");
+  function applyZoneStyle(group, isSelected = false) {
+    const rect = group.querySelector(".zone");
+    const handle = group.querySelector(".resize-handle");
+    const label = group.querySelector(".zone-label");
 
-      const style = getZoneStyle(isSelected);
+    const style = getZoneStyle(isSelected);
 
-      rect.setAttribute("fill", style.fill);
-      rect.setAttribute("stroke", style.stroke);
-      rect.setAttribute("stroke-width", style.strokeWidth);
+    rect.setAttribute("fill", style.fill);
+    rect.setAttribute("stroke", style.stroke);
+    rect.setAttribute("stroke-width", style.strokeWidth);
 
-      group.classList.toggle("selected", isSelected);
-      group.classList.toggle("editor", EDITOR_MODE);
+    group.classList.toggle("selected", isSelected);
+    group.classList.toggle("editor", EDITOR_MODE);
 
-      if (handle) {
-        handle.style.display = EDITOR_MODE ? "block" : "none";
-      }
-
-      if (label) {
-        label.style.display = EDITOR_MODE ? "block" : "none";
-      }
+    if (handle) {
+      handle.style.display = EDITOR_MODE ? "block" : "none";
     }
 
-    /* ==========================================================
-       Modal
-       ========================================================== */
-
-
-    function renderModal(zone) {
-      modalTitle.textContent = `${zone.id} — ${zone.title}`;
-      modalSubtitle.textContent = `${zone.section} • ${zone.status}`;
-    
-      const details = [];
-    
-      if (zone.description) {
-        details.push({
-          label: "Description",
-          value: escapeHtml(zone.description)
-        });
-      }
-    
-      if (zone.contact) {
-        details.push({
-          label: "Contact",
-          value: escapeHtml(zone.contact)
-        });
-      }
-    
-      if (zone.link) {
-        details.push({
-          label: "Link",
-          value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
-        });
-      }
-    
-      modalBody.innerHTML = `
-        <ul class="detail-list">
-          ${details.map(item => `
-            <li class="detail-item">
-              <span class="detail-label">${item.label}</span>
-              <div class="detail-value">${item.value}</div>
-            </li>
-          `).join("")}
-        </ul>
-      `;
+    if (label) {
+      label.style.display = EDITOR_MODE ? "block" : "none";
     }
+  }
 
+  /* ==========================================================
+     MODAL
+     ========================================================== */
+  function renderModal(zone) {
+    modalTitle.textContent = `${zone.id} — ${zone.title}`;
+    modalSubtitle.textContent = `${zone.section} • ${zone.status || "Open"}`;
 
-    function openModal() {
-      modalSheet.classList.add("open");
-      modalSheet.setAttribute("aria-hidden", "false");
-    }
+    const details = [];
 
-    function closeModal() {
-      modalSheet.classList.remove("open");
-      modalSheet.setAttribute("aria-hidden", "true");
-    }
-
-    /* ==========================================================
-       Selection
-       ========================================================== */
-
-    function selectZone(id, openDetails = true) {
-
-      const zone = zones.get(id);
-
-      if (!zone) return;
-
-      currentSelection = id;
-
-      svg.querySelectorAll(".zone-group")
-        .forEach(group => {
-
-          applyZoneStyle(
-            group,
-            group.dataset.id === id
-          );
-        });
-
-      jumpMenu.value = id;
-
-      statusBar.textContent = EDITOR_MODE
-        ? `Selected ${zone.id}`
-        : `Selected ${zone.id} — ${zone.title}`;
-
-      if (openDetails) {
-        renderModal(zone);
-        openModal();
-      }
-    }
-
-    /* ==========================================================
-       Demo Zones
-       ========================================================== */
-
-function buildZones() {
-
-  zones.clear();
-
-  const layout = {
-    A: { x: 510, y: 550, w: 55, h: 34, rows: 18 },
-    B: { x: 680, y: 620, w: 56, h: 34, rows: 16 },
-    C: { x: 740, y: 550, w: 56, h: 34, rows: 18 },
-    D: { x: 910, y: 550, w: 56, h: 34, rows: 18 }
-  };
-
-  const pad = 2;
-
-  // -------- Booths --------
-  ["A","B","C","D"].forEach(section => {
-
-    const s = layout[section];
-
-    for (let i = 0; i < s.rows; i++) {
-
-      const num = s.rows - i;
-      const id = section + num;
-
-      zones.set(id, {
-        id,
-        title: id,
-        section,
-        description: `Booth ${id}`,
-        status: "Open",
-        coords: {
-          x: s.x - pad,
-          y: (s.y + (i * s.h)) - pad,
-          w: s.w + (pad * 2),
-          h: s.h + (pad * 2)
-        }
+    if (zone.description) {
+      details.push({
+        label: "Description",
+        value: escapeHtml(zone.description)
       });
     }
-  });
 
-  // -------- Features --------
-  zones.set("REGISTRATION", {
-    id: "REGISTRATION",
-    title: "Registration",
-    section: "North Entrance",
-    description: "Main check-in area.",
-    status: "Feature",
-    coords: { x: 589, y: 145, w: 296, h: 101 }
-  });
-
-  zones.set("FIRST_AID", {
-    id: "FIRST_AID",
-    title: "First Aid",
-    section: "Northwest",
-    description: "Medical support area.",
-    status: "Feature",
-    coords: { x: 451, y: 154, w: 90, h: 87 }
-  });
-
-  zones.set("EVENT_STAGE", {
-    id: "EVENT_STAGE",
-    title: "Event Stage",
-    section: "South Center",
-    description: "Main stage area.",
-    status: "Feature",
-    coords: { x: 606, y: 1456, w: 451, h: 362 }
-  });
-
-  zones.set("RESTROOM_NORTH", {
-    id: "RESTROOM_NORTH",
-    title: "Restrooms (North)",
-    section: "Northeast",
-    description: "North restroom area.",
-    status: "Feature",
-    coords: { x: 906, y: 150, w: 115, h: 94 }
-  });
-
-  zones.set("RESTROOM_SOUTH", {
-    id: "RESTROOM_SOUTH",
-    title: "Restrooms (South)",
-    section: "South Entrance",
-    description: "South restroom area.",
-    status: "Feature",
-    coords: { x: 757, y: 1831, w: 110, h: 110 }
-  });
-}
-
-    /* ==========================================================
-       Drawing
-       ========================================================== */
-
-    function updateGroupGeometry(group, zone) {
-
-      const rect = group.querySelector(".zone");
-
-      rect.setAttribute("x", zone.coords.x);
-      rect.setAttribute("y", zone.coords.y);
-
-      rect.setAttribute("width", zone.coords.w);
-      rect.setAttribute("height", zone.coords.h);
+    if (zone.contact) {
+      details.push({
+        label: "Contact",
+        value: escapeHtml(zone.contact)
+      });
     }
 
-    function drawZones() {
+    if (zone.link) {
+      details.push({
+        label: "Link",
+        value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
+      });
+    }
 
-      svg.innerHTML = "";
+    modalBody.innerHTML = `
+      <ul class="detail-list">
+        ${details.map(item => `
+          <li class="detail-item">
+            <span class="detail-label">${item.label}</span>
+            <div class="detail-value">${item.value}</div>
+          </li>
+        `).join("")}
+      </ul>
+    `;
+  }
 
-      zones.forEach((zone) => {
+  function openModal() {
+    modalSheet.classList.add("open");
+    modalSheet.setAttribute("aria-hidden", "false");
+  }
 
-        const group =
-          document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "g"
-          );
+  function closeModal() {
+    modalSheet.classList.remove("open");
+    modalSheet.setAttribute("aria-hidden", "true");
+  }
 
-        group.setAttribute("class", "zone-group");
-        group.dataset.id = zone.id;
+  /* ==========================================================
+     SELECTION
+     ========================================================== */
+  function selectZone(id, openDetails = true) {
+    const zone = zones.get(id);
+    if (!zone) return;
 
-        const rect =
-          document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "rect"
-          );
+    currentSelection = id;
 
-        rect.setAttribute("class", "zone");
-        rect.setAttribute("rx", "3");
-        rect.setAttribute("ry", "3");
+    svg.querySelectorAll(".zone-group").forEach(group => {
+      applyZoneStyle(group, group.dataset.id === id);
+    });
 
-        group.appendChild(rect);
+    jumpMenu.value = id;
 
-        svg.appendChild(group);
+    statusBar.textContent = EDITOR_MODE
+      ? `Selected ${zone.id}`
+      : `Selected ${zone.id} — ${zone.title}`;
 
-        updateGroupGeometry(group, zone);
+    if (openDetails) {
+      renderModal(zone);
+      openModal();
+    }
+  }
 
-        applyZoneStyle(group, false);
+  /* ==========================================================
+     CSV LOADER
+     ========================================================== */
+  async function buildZones() {
+    zones.clear();
 
-        group.addEventListener("click", (e) => {
+    try {
+      const res = await fetch(ZONES_CSV_URL, { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
 
+      const text = await res.text();
+
+      const lines = text
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      if (lines.length < 2) {
+        throw new Error("CSV is empty or missing data rows.");
+      }
+
+      const headers = parseCsvLine(lines[0]);
+
+      const idx = {
+        id: headers.indexOf("id"),
+        title: headers.indexOf("title"),
+        section: headers.indexOf("section"),
+        description: headers.indexOf("description"),
+        x: headers.indexOf("x"),
+        y: headers.indexOf("y"),
+        w: headers.indexOf("w"),
+        h: headers.indexOf("h"),
+        status: headers.indexOf("status"),
+        contact: headers.indexOf("contact"),
+        link: headers.indexOf("link")
+      };
+
+      const required = ["id", "title", "section", "description", "x", "y", "w", "h"];
+      const missing = required.filter(name => idx[name] === -1);
+
+      if (missing.length) {
+        throw new Error(`Missing required CSV columns: ${missing.join(", ")}`);
+      }
+
+      const boothPad = getBoothHitPadding();
+      const featurePad = getFeatureHitPadding();
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = parseCsvLine(lines[i]);
+        const id = csvValue(row, idx.id);
+        if (!id) continue;
+
+        const section = csvValue(row, idx.section);
+        const isFeature = (csvValue(row, idx.status) || "").toLowerCase() === "feature";
+        const pad = isFeature ? featurePad : boothPad;
+
+        const zone = {
+          id,
+          title: csvValue(row, idx.title) || id,
+          section: section || "",
+          description: csvValue(row, idx.description) || "",
+          status: csvValue(row, idx.status) || "Open",
+          contact: csvValue(row, idx.contact) || "",
+          link: csvValue(row, idx.link) || "",
+          coords: {
+            x: toNumber(csvValue(row, idx.x)) - pad,
+            y: toNumber(csvValue(row, idx.y)) - pad,
+            w: toNumber(csvValue(row, idx.w)) + (pad * 2),
+            h: toNumber(csvValue(row, idx.h)) + (pad * 2)
+          }
+        };
+
+        zones.set(zone.id, zone);
+      }
+
+      statusBar.textContent = `Loaded ${zones.size} zones from CSV.`;
+
+    } catch (err) {
+      console.error("Failed to load zones.csv:", err);
+      statusBar.textContent = `Failed to load ${ZONES_CSV_URL}: ${err.message}`;
+    }
+  }
+
+  /* ==========================================================
+     DRAWING
+     ========================================================== */
+  function updateGroupGeometry(group, zone) {
+    const rect = group.querySelector(".zone");
+    const handle = group.querySelector(".resize-handle");
+    const label = group.querySelector(".zone-label");
+
+    rect.setAttribute("x", zone.coords.x);
+    rect.setAttribute("y", zone.coords.y);
+    rect.setAttribute("width", zone.coords.w);
+    rect.setAttribute("height", zone.coords.h);
+
+    if (handle) {
+      handle.setAttribute("x", zone.coords.x + zone.coords.w - HANDLE_SIZE);
+      handle.setAttribute("y", zone.coords.y + zone.coords.h - HANDLE_SIZE);
+      handle.setAttribute("width", HANDLE_SIZE);
+      handle.setAttribute("height", HANDLE_SIZE);
+    }
+
+    if (label) {
+      label.setAttribute("x", zone.coords.x + 4);
+      label.setAttribute("y", zone.coords.y + 14);
+      label.textContent = zone.id;
+    }
+  }
+
+  function drawZones() {
+    svg.innerHTML = "";
+
+    zones.forEach(zone => {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("class", "zone-group");
+      group.setAttribute("tabindex", "0");
+      group.setAttribute("role", "button");
+      group.setAttribute("aria-label", `${zone.id} ${zone.title}`);
+      group.dataset.id = zone.id;
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("class", "zone");
+      rect.setAttribute("rx", "3");
+      rect.setAttribute("ry", "3");
+
+      group.appendChild(rect);
+      svg.appendChild(group);
+
+      updateGroupGeometry(group, zone);
+      applyZoneStyle(group, zone.id === currentSelection);
+
+      group.addEventListener("click", (e) => {
+        if (performance.now() < suppressTapUntil) {
           e.preventDefault();
           e.stopPropagation();
+          return;
+        }
 
-          selectZone(zone.id, true);
-        });
+        e.preventDefault();
+        e.stopPropagation();
+
+        selectZone(zone.id, true);
       });
+
+      group.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          selectZone(zone.id, true);
+        }
+      });
+    });
+  }
+
+  function populateJumpMenu() {
+    jumpMenu.innerHTML = `<option value="">Jump to booth or feature</option>`;
+
+    [...zones.values()]
+      .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
+      .forEach(zone => {
+        const opt = document.createElement("option");
+        opt.value = zone.id;
+        opt.textContent = `${zone.id} — ${zone.title}`;
+        jumpMenu.appendChild(opt);
+      });
+  }
+
+  /* ==========================================================
+     SEARCH
+     ========================================================== */
+  function searchZones(query) {
+    const q = (query || "").toLowerCase().trim();
+
+    if (!q) {
+      svg.querySelectorAll(".zone-group").forEach(group => {
+        group.style.opacity = "1";
+        group.style.pointerEvents = "all";
+      });
+      return;
     }
 
-    /* ==========================================================
-       Search
-       ========================================================== */
+    let firstMatch = "";
+    let matchCount = 0;
 
-    function searchZones(query) {
+    zones.forEach((zone, id) => {
+      const group = svg.querySelector(`.zone-group[data-id="${CSS.escape(id)}"]`);
 
-      const q =
-        (query || "")
-          .toLowerCase()
-          .trim();
+      const haystack = [
+        zone.id,
+        zone.title,
+        zone.section,
+        zone.description,
+        zone.status,
+        zone.contact
+      ].join(" ").toLowerCase();
 
-      if (!q) {
+      const match = haystack.includes(q);
 
-        svg.querySelectorAll(".zone-group")
-          .forEach(group => {
-            group.style.opacity = "1";
-          });
+      if (group) {
+        group.style.opacity = match ? "1" : "0.08";
+        group.style.pointerEvents = match ? "all" : "none";
+      }
 
+      if (match) {
+        matchCount++;
+        if (!firstMatch) firstMatch = id;
+      }
+    });
+
+    if (matchCount === 1 && firstMatch) {
+      selectZone(firstMatch, true);
+    }
+  }
+
+  /* ==========================================================
+     COPY LAYOUT (optional, hidden when EDITOR_MODE=false)
+     ========================================================== */
+  function collectLayoutOverrides() {
+    const overrides = {};
+    zones.forEach((zone, id) => {
+      overrides[id] = {
+        x: Math.round(zone.coords.x),
+        y: Math.round(zone.coords.y),
+        w: Math.round(zone.coords.w),
+        h: Math.round(zone.coords.h)
+      };
+    });
+    return overrides;
+  }
+
+  async function copyLayoutJson() {
+    const json = JSON.stringify(collectLayoutOverrides(), null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      statusBar.textContent = "Layout JSON copied to clipboard.";
+    } catch {
+      statusBar.textContent = "Unable to copy automatically. JSON was written to the console.";
+      console.log(json);
+    }
+  }
+
+  /* ==========================================================
+     POLISHED ZOOM UX
+     pinch + pan + inertia + bounds + double-tap
+     ========================================================== */
+  function stopMomentum() {
+    if (momentumFrame) {
+      cancelAnimationFrame(momentumFrame);
+      momentumFrame = null;
+    }
+  }
+
+  function getViewportWidth() {
+    return mapWrapper.clientWidth;
+  }
+
+  function getViewportHeight() {
+    return mapWrapper.clientHeight || mapImage.clientHeight || 0;
+  }
+
+  function getContentWidth() {
+    return getViewportWidth() * zoomState.scale;
+  }
+
+  function getContentHeight() {
+    const baseH = mapImage.clientHeight || 0;
+    return baseH * zoomState.scale;
+  }
+
+  function clampPan() {
+    if (zoomState.scale <= 1) {
+      zoomState.x = 0;
+      zoomState.y = 0;
+      return;
+    }
+
+    const viewportW = getViewportWidth();
+    const viewportH = getViewportHeight();
+    const contentW = getContentWidth();
+    const contentH = getContentHeight();
+
+    const minX = Math.min(0, viewportW - contentW);
+    const minY = Math.min(0, viewportH - contentH);
+
+    zoomState.x = Math.max(minX, Math.min(0, zoomState.x));
+    zoomState.y = Math.max(minY, Math.min(0, zoomState.y));
+  }
+
+  function applyZoomTransform() {
+    clampPan();
+    zoomLayer.style.transform =
+      `translate3d(${zoomState.x}px, ${zoomState.y}px, 0) scale(${zoomState.scale})`;
+  }
+
+  function resetZoom() {
+    stopMomentum();
+    zoomState.scale = 1;
+    zoomState.x = 0;
+    zoomState.y = 0;
+    zoomState.velX = 0;
+    zoomState.velY = 0;
+    applyZoomTransform();
+  }
+
+  function getDistance(t1, t2) {
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    return Math.hypot(dx, dy);
+  }
+
+  function getMidpoint(t1, t2, rect) {
+    return {
+      x: ((t1.clientX + t2.clientX) / 2) - rect.left,
+      y: ((t1.clientY + t2.clientY) / 2) - rect.top
+    };
+  }
+
+  function zoomAroundPoint(targetScale, screenX, screenY) {
+    const clampedScale = Math.max(
+      zoomState.minScale,
+      Math.min(zoomState.maxScale, targetScale)
+    );
+
+    const worldX = (screenX - zoomState.x) / zoomState.scale;
+    const worldY = (screenY - zoomState.y) / zoomState.scale;
+
+    zoomState.scale = clampedScale;
+    zoomState.x = screenX - (worldX * zoomState.scale);
+    zoomState.y = screenY - (worldY * zoomState.scale);
+
+    applyZoomTransform();
+  }
+
+  function startMomentum() {
+    stopMomentum();
+
+    const friction = 0.94;
+    const minVelocity = 0.08;
+
+    function step() {
+      zoomState.x += zoomState.velX;
+      zoomState.y += zoomState.velY;
+
+      const beforeX = zoomState.x;
+      const beforeY = zoomState.y;
+
+      clampPan();
+
+      if (zoomState.x !== beforeX) zoomState.velX = 0;
+      if (zoomState.y !== beforeY) zoomState.velY = 0;
+
+      zoomState.velX *= friction;
+      zoomState.velY *= friction;
+
+      applyZoomTransform();
+
+      if (
+        Math.abs(zoomState.velX) < minVelocity &&
+        Math.abs(zoomState.velY) < minVelocity
+      ) {
+        stopMomentum();
         return;
       }
 
-      zones.forEach((zone, id) => {
-
-        const group =
-          svg.querySelector(
-            `.zone-group[data-id="${CSS.escape(id)}"]`
-          );
-
-        const haystack = [
-          zone.id,
-          zone.title,
-          zone.section,
-          zone.description
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        const match = haystack.includes(q);
-
-        if (group) {
-          group.style.opacity = match ? "1" : "0.08";
-        }
-      });
+      momentumFrame = requestAnimationFrame(step);
     }
 
-    /* ==========================================================
-       Init
-       ========================================================== */
+    momentumFrame = requestAnimationFrame(step);
+  }
 
-    function init() {
+  function handleTouchStart(e) {
+    if (EDITOR_MODE) return;
 
-      buildZones();
+    if (e.touches.length === 1) {
+      const now = performance.now();
+      const tapGap = now - zoomState.lastTapTime;
+      zoomState.lastTapTime = now;
 
-      drawZones();
+      if (tapGap > 0 && tapGap < 280) {
+        e.preventDefault();
+        const rect = mapWrapper.getBoundingClientRect();
+        const t = e.touches[0];
+        const localX = t.clientX - rect.left;
+        const localY = t.clientY - rect.top;
 
-      searchBox.addEventListener("input", (e) => {
-        searchZones(e.target.value);
-      });
+        if (zoomState.scale < 2) {
+          zoomAroundPoint(2, localX, localY);
+        } else {
+          resetZoom();
+        }
 
-      closeModalBtn.addEventListener("click", closeModal);
-
-      statusBar.textContent =
-        "Tap a booth or feature to open details.";
-
-      if (!EDITOR_MODE) {
-        copyLayoutBtn.style.display = "none";
-        clearBtn.style.display = "none";
+        suppressTapUntil = performance.now() + 300;
+        return;
       }
     }
 
-    init();
-  </script>
+    if (e.touches.length === 2) {
+      stopMomentum();
+
+      zoomState.isPinching = true;
+      zoomState.isPanning = false;
+      zoomState.moved = false;
+
+      zoomState.startDistance = getDistance(e.touches[0], e.touches[1]);
+      zoomState.startScale = zoomState.scale;
+      zoomState.velX = 0;
+      zoomState.velY = 0;
+    } else if (e.touches.length === 1 && zoomState.scale > 1) {
+      stopMomentum();
+
+      const t = e.touches[0];
+      zoomState.isPanning = true;
+      zoomState.isPinching = false;
+      zoomState.moved = false;
+
+      zoomState.panStartClientX = t.clientX;
+      zoomState.panStartClientY = t.clientY;
+      zoomState.panOriginX = zoomState.x;
+      zoomState.panOriginY = zoomState.y;
+
+      zoomState.lastClientX = t.clientX;
+      zoomState.lastClientY = t.clientY;
+      zoomState.lastTime = performance.now();
+
+      zoomState.velX = 0;
+      zoomState.velY = 0;
+    }
+  }
+
+  function handleTouchMove(e) {
+    if (EDITOR_MODE) return;
+
+    if (e.touches.length === 2) {
+      e.preventDefault();
+
+      const rect = mapWrapper.getBoundingClientRect();
+      const distance = getDistance(e.touches[0], e.touches[1]);
+      const midpoint = getMidpoint(e.touches[0], e.touches[1], rect);
+
+      const scaleFactor = distance / zoomState.startDistance;
+      const targetScale = zoomState.startScale * scaleFactor;
+
+      zoomAroundPoint(targetScale, midpoint.x, midpoint.y);
+      zoomState.moved = true;
+    } else if (e.touches.length === 1 && zoomState.scale > 1 && zoomState.isPanning) {
+      e.preventDefault();
+
+      const t = e.touches[0];
+      const now = performance.now();
+      const dt = Math.max(1, now - zoomState.lastTime);
+
+      zoomState.x = zoomState.panOriginX + (t.clientX - zoomState.panStartClientX);
+      zoomState.y = zoomState.panOriginY + (t.clientY - zoomState.panStartClientY);
+
+      zoomState.velX = ((t.clientX - zoomState.lastClientX) / dt) * 16;
+      zoomState.velY = ((t.clientY - zoomState.lastClientY) / dt) * 16;
+
+      zoomState.lastClientX = t.clientX;
+      zoomState.lastClientY = t.clientY;
+      zoomState.lastTime = now;
+
+      if (
+        Math.abs(t.clientX - zoomState.panStartClientX) > 3 ||
+        Math.abs(t.clientY - zoomState.panStartClientY) > 3
+      ) {
+        zoomState.moved = true;
+      }
+
+      applyZoomTransform();
+    }
+  }
+
+  function handleTouchEnd(e) {
+    if (EDITOR_MODE) return;
+
+    if (zoomState.isPinching && e.touches.length < 2) {
+      zoomState.isPinching = false;
+      if (zoomState.moved) suppressTapUntil = performance.now() + 250;
+    }
+
+    if (zoomState.isPanning && e.touches.length === 0) {
+      zoomState.isPanning = false;
+
+      if (zoomState.moved) {
+        suppressTapUntil = performance.now() + 250;
+      }
+
+      if (zoomState.scale > 1) {
+        startMomentum();
+      } else {
+        resetZoom();
+      }
+    }
+
+    if (zoomState.scale <= 1) {
+      resetZoom();
+    }
+  }
+
+  /* ==========================================================
+     INIT
+     ========================================================== */
+  async function init() {
+    if (!EDITOR_MODE) {
+      if (copyLayoutBtn) copyLayoutBtn.style.display = "none";
+      if (clearBtn) clearBtn.style.display = "none";
+    } else {
+      if (copyLayoutBtn) {
+        copyLayoutBtn.addEventListener("click", copyLayoutJson);
+      }
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        searchBox.value = "";
+        svg.querySelectorAll(".zone-group").forEach(group => {
+          group.style.opacity = "1";
+          group.style.pointerEvents = "all";
+        });
+        closeModal();
+        statusBar.textContent = "Tap a booth or feature to open details.";
+      });
+    }
+
+    searchBox.addEventListener("input", (e) => {
+      searchZones(e.target.value);
+    });
+
+    jumpMenu.addEventListener("change", () => {
+      if (jumpMenu.value) {
+        selectZone(jumpMenu.value, true);
+      }
+    });
+
+    closeModalBtn.addEventListener("click", closeModal);
+
+    mapWrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
+    mapWrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
+    mapWrapper.addEventListener("touchend", handleTouchEnd, { passive: false });
+    mapWrapper.addEventListener("touchcancel", handleTouchEnd, { passive: false });
+
+    window.addEventListener("resize", applyZoomTransform);
+
+    await buildZones();
+    drawZones();
+    populateJumpMenu();
+    applyZoomTransform();
+
+    statusBar.textContent = "Tap a booth or feature to open details.";
+  }
+
+  init();
+</script>
 </body>
 </html>
 ```
