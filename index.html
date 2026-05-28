@@ -17,7 +17,7 @@
       --input-bg: rgba(255, 255, 255, 0.06);
       --modal-bg: #012249;
       --overlay-fill: rgba(255, 255, 255, 0.16);
-      --overlay-stroke: rgba(255, 255, 255, 0.85);
+      --overlay-stroke: rgba(255, 0, 0, 0.85);
       --selected-fill: rgba(255, 255, 255, 0.28);
       --selected-stroke: #ffffff;
       --handle-fill: #ffffff;
@@ -190,7 +190,6 @@
       white-space: pre-wrap;
     }
 
-    /* Modal backdrop */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -206,7 +205,6 @@
       pointer-events: auto;
     }
 
-    /* Bottom sheet modal */
     .modal-sheet {
       position: fixed;
       left: 0;
@@ -399,6 +397,490 @@
     const EDITOR_MODE = true;
 
     /* ==========================================================
+       OPTIONAL PERSISTENT OVERRIDES
+       Paste copied JSON here after using editor mode.
+       Only include zones you want to override.
+       ========================================================== */
+    const zoneOverrides = {
+      {
+        "A18": {
+          "x": 516,
+          "y": 550,
+          "w": 59,
+          "h": 38
+        },
+        "A17": {
+          "x": 516,
+          "y": 590,
+          "w": 59,
+          "h": 38
+        },
+        "A16": {
+          "x": 513,
+          "y": 628,
+          "w": 59,
+          "h": 38
+        },
+        "A15": {
+          "x": 516,
+          "y": 668,
+          "w": 59,
+          "h": 38
+        },
+        "A14": {
+          "x": 515,
+          "y": 706,
+          "w": 59,
+          "h": 38
+        },
+        "A13": {
+          "x": 514,
+          "y": 747,
+          "w": 59,
+          "h": 38
+        },
+        "A12": {
+          "x": 518,
+          "y": 782,
+          "w": 59,
+          "h": 38
+        },
+        "A11": {
+          "x": 513,
+          "y": 821,
+          "w": 59,
+          "h": 38
+        },
+        "A10": {
+          "x": 515,
+          "y": 858,
+          "w": 59,
+          "h": 38
+        },
+        "A9": {
+          "x": 517,
+          "y": 896,
+          "w": 59,
+          "h": 38
+        },
+        "A8": {
+          "x": 512,
+          "y": 937,
+          "w": 59,
+          "h": 38
+        },
+        "A7": {
+          "x": 516,
+          "y": 974,
+          "w": 59,
+          "h": 38
+        },
+        "A6": {
+          "x": 514,
+          "y": 1013,
+          "w": 59,
+          "h": 38
+        },
+        "A5": {
+          "x": 515,
+          "y": 1051,
+          "w": 59,
+          "h": 38
+        },
+        "A4": {
+          "x": 514,
+          "y": 1089,
+          "w": 59,
+          "h": 38
+        },
+        "A3": {
+          "x": 517,
+          "y": 1128,
+          "w": 59,
+          "h": 38
+        },
+        "A2": {
+          "x": 515,
+          "y": 1167,
+          "w": 59,
+          "h": 38
+        },
+        "A1": {
+          "x": 515,
+          "y": 1205,
+          "w": 59,
+          "h": 38
+        },
+        "B16": {
+          "x": 686,
+          "y": 629,
+          "w": 60,
+          "h": 38
+        },
+        "B15": {
+          "x": 686,
+          "y": 667,
+          "w": 60,
+          "h": 38
+        },
+        "B14": {
+          "x": 685,
+          "y": 709,
+          "w": 60,
+          "h": 38
+        },
+        "B13": {
+          "x": 685,
+          "y": 745,
+          "w": 60,
+          "h": 38
+        },
+        "B12": {
+          "x": 686,
+          "y": 782,
+          "w": 60,
+          "h": 38
+        },
+        "B11": {
+          "x": 685,
+          "y": 820,
+          "w": 60,
+          "h": 38
+        },
+        "B10": {
+          "x": 687,
+          "y": 859,
+          "w": 60,
+          "h": 38
+        },
+        "B9": {
+          "x": 683,
+          "y": 896,
+          "w": 60,
+          "h": 38
+        },
+        "B8": {
+          "x": 688,
+          "y": 932,
+          "w": 60,
+          "h": 38
+        },
+        "B7": {
+          "x": 687,
+          "y": 971,
+          "w": 60,
+          "h": 38
+        },
+        "B6": {
+          "x": 688,
+          "y": 1008,
+          "w": 60,
+          "h": 38
+        },
+        "B5": {
+          "x": 688,
+          "y": 1050,
+          "w": 60,
+          "h": 38
+        },
+        "B4": {
+          "x": 686,
+          "y": 1086,
+          "w": 60,
+          "h": 38
+        },
+        "B3": {
+          "x": 687,
+          "y": 1127,
+          "w": 60,
+          "h": 38
+        },
+        "B2": {
+          "x": 686,
+          "y": 1164,
+          "w": 60,
+          "h": 38
+        },
+        "B1": {
+          "x": 689,
+          "y": 1205,
+          "w": 60,
+          "h": 38
+        },
+        "C18": {
+          "x": 746,
+          "y": 551,
+          "w": 60,
+          "h": 38
+        },
+        "C17": {
+          "x": 744,
+          "y": 589,
+          "w": 60,
+          "h": 38
+        },
+        "C16": {
+          "x": 747,
+          "y": 628,
+          "w": 60,
+          "h": 38
+        },
+        "C15": {
+          "x": 749,
+          "y": 665,
+          "w": 60,
+          "h": 38
+        },
+        "C14": {
+          "x": 747,
+          "y": 705,
+          "w": 60,
+          "h": 38
+        },
+        "C13": {
+          "x": 749,
+          "y": 745,
+          "w": 60,
+          "h": 38
+        },
+        "C12": {
+          "x": 746,
+          "y": 782,
+          "w": 60,
+          "h": 38
+        },
+        "C11": {
+          "x": 748,
+          "y": 821,
+          "w": 60,
+          "h": 38
+        },
+        "C10": {
+          "x": 744,
+          "y": 859,
+          "w": 60,
+          "h": 38
+        },
+        "C9": {
+          "x": 747,
+          "y": 895,
+          "w": 60,
+          "h": 38
+        },
+        "C8": {
+          "x": 748,
+          "y": 935,
+          "w": 60,
+          "h": 38
+        },
+        "C7": {
+          "x": 747,
+          "y": 970,
+          "w": 60,
+          "h": 38
+        },
+        "C6": {
+          "x": 745,
+          "y": 1011,
+          "w": 60,
+          "h": 38
+        },
+        "C5": {
+          "x": 749,
+          "y": 1050,
+          "w": 60,
+          "h": 38
+        },
+        "C4": {
+          "x": 747,
+          "y": 1088,
+          "w": 60,
+          "h": 38
+        },
+        "C3": {
+          "x": 749,
+          "y": 1126,
+          "w": 60,
+          "h": 38
+        },
+        "C2": {
+          "x": 748,
+          "y": 1163,
+          "w": 60,
+          "h": 38
+        },
+        "C1": {
+          "x": 747,
+          "y": 1206,
+          "w": 60,
+          "h": 38
+        },
+        "D18": {
+          "x": 917,
+          "y": 553,
+          "w": 60,
+          "h": 38
+        },
+        "D17": {
+          "x": 918,
+          "y": 590,
+          "w": 60,
+          "h": 38
+        },
+        "D16": {
+          "x": 918,
+          "y": 629,
+          "w": 60,
+          "h": 38
+        },
+        "D15": {
+          "x": 917,
+          "y": 668,
+          "w": 60,
+          "h": 38
+        },
+        "D14": {
+          "x": 919,
+          "y": 706,
+          "w": 60,
+          "h": 38
+        },
+        "D13": {
+          "x": 915,
+          "y": 744,
+          "w": 60,
+          "h": 38
+        },
+        "D12": {
+          "x": 918,
+          "y": 783,
+          "w": 60,
+          "h": 38
+        },
+        "D11": {
+          "x": 918,
+          "y": 821,
+          "w": 60,
+          "h": 38
+        },
+        "D10": {
+          "x": 919,
+          "y": 858,
+          "w": 60,
+          "h": 38
+        },
+        "D9": {
+          "x": 921,
+          "y": 896,
+          "w": 60,
+          "h": 38
+        },
+        "D8": {
+          "x": 920,
+          "y": 934,
+          "w": 60,
+          "h": 38
+        },
+        "D7": {
+          "x": 920,
+          "y": 971,
+          "w": 60,
+          "h": 38
+        },
+        "D6": {
+          "x": 917,
+          "y": 1011,
+          "w": 60,
+          "h": 38
+        },
+        "D5": {
+          "x": 922,
+          "y": 1051,
+          "w": 60,
+          "h": 38
+        },
+        "D4": {
+          "x": 920,
+          "y": 1087,
+          "w": 60,
+          "h": 38
+        },
+        "D3": {
+          "x": 919,
+          "y": 1128,
+          "w": 60,
+          "h": 38
+        },
+        "D2": {
+          "x": 918,
+          "y": 1164,
+          "w": 60,
+          "h": 38
+        },
+        "D1": {
+          "x": 922,
+          "y": 1203,
+          "w": 60,
+          "h": 38
+        },
+        "REGISTRATION": {
+          "x": 589,
+          "y": 145,
+          "w": 296,
+          "h": 101
+        },
+        "FIRST_AID": {
+          "x": 451,
+          "y": 154,
+          "w": 90,
+          "h": 87
+        },
+        "TRACK_1": {
+          "x": 624,
+          "y": 413,
+          "w": 253,
+          "h": 81
+        },
+        "TRACK_2": {
+          "x": 622,
+          "y": 1277,
+          "w": 255,
+          "h": 79
+        },
+        "VIP_AREA": {
+          "x": 390,
+          "y": 1247,
+          "w": 151,
+          "h": 587
+        },
+        "EVENT_STAGE": {
+          "x": 606,
+          "y": 1456,
+          "w": 451,
+          "h": 362
+        },
+        "LOADING": {
+          "x": 1047,
+          "y": 799,
+          "w": 167,
+          "h": 89
+        },
+        "RESTROOM_NORTH": {
+          "x": 906,
+          "y": 150,
+          "w": 115,
+          "h": 94
+        },
+        "RESTROOM_SOUTH": {
+          "x": 757,
+          "y": 1831,
+          "w": 110,
+          "h": 110
+        }
+      }
+    };
+
+    /* ==========================================================
        Optional touch padding for booth/feature hit areas
        ========================================================== */
     const MOBILE_HIT_PADDING = 8;
@@ -494,6 +976,15 @@
       return Math.max(min, Math.min(max, value));
     }
 
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
     function makeBooth(id, title, section, x, y, w, h, extra = {}) {
       return {
         id,
@@ -508,9 +999,28 @@
       };
     }
 
-    function addFeature(id, title, section, description, x, y, w, h, extra = {}) {
+    /* ==========================================================
+       ZONE OVERRIDE HELPERS
+       ========================================================== */
+    function applyOverride(zone) {
+      const o = zoneOverrides[zone.id];
+      if (!o) return zone;
+
+      return {
+        ...zone,
+        coords: {
+          x: o.x ?? zone.coords.x,
+          y: o.y ?? zone.coords.y,
+          w: o.w ?? zone.coords.w,
+          h: o.h ?? zone.coords.h
+        }
+      };
+    }
+
+    function applyOverrideToFeature(id, title, section, description, x, y, w, h, extra = {}) {
       const pad = getFeatureHitPadding();
-      zones.set(id, {
+
+      const zone = {
         id,
         title,
         section,
@@ -525,7 +1035,9 @@
           w: w + (pad * 2),
           h: h + (pad * 2)
         }
-      });
+      };
+
+      zones.set(id, applyOverride(zone));
     }
 
     function buildBooths() {
@@ -545,11 +1057,13 @@
           const w = s.w + (pad * 2);
           const h = s.h + (pad * 2);
 
-          zones.set(id, makeBooth(id, id, section, x, y, w, h));
+          zones.set(id, applyOverride(
+            makeBooth(id, id, section, x, y, w, h)
+          ));
         }
       });
 
-      addFeature(
+      applyOverrideToFeature(
         "REGISTRATION",
         "Registration",
         "North Entrance",
@@ -558,7 +1072,7 @@
         { notes: "Add hours or volunteer notes here." }
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "FIRST_AID",
         "First Aid",
         "Northwest",
@@ -566,7 +1080,7 @@
         437, 112, 96, 96
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "TRACK_1",
         "Pinewood Derby Track 1",
         "Center Floor",
@@ -574,7 +1088,7 @@
         621, 410, 244, 108
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "TRACK_2",
         "Pinewood Derby Track 2",
         "Center Floor",
@@ -582,7 +1096,7 @@
         621, 1189, 244, 104
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "VIP_AREA",
         "VIP Area",
         "Southwest",
@@ -590,7 +1104,7 @@
         383, 1121, 139, 660
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "EVENT_STAGE",
         "Event Stage Area",
         "South Center",
@@ -598,7 +1112,7 @@
         640, 1543, 518, 285
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "LOADING",
         "Event Loading",
         "East Side",
@@ -606,7 +1120,7 @@
         1048, 775, 198, 156
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "RESTROOM_NORTH",
         "Restrooms (North)",
         "Northeast",
@@ -614,7 +1128,7 @@
         937, 107, 104, 104
       );
 
-      addFeature(
+      applyOverrideToFeature(
         "RESTROOM_SOUTH",
         "Restrooms (South)",
         "South Entrance",
@@ -680,6 +1194,56 @@
         label.setAttribute("y", zone.coords.y + 14);
         label.textContent = zone.id;
       }
+    }
+
+    function renderModal(zone) {
+      modalTitle.textContent = `${zone.id} — ${zone.title}`;
+      modalSubtitle.textContent = `${zone.section} • ${zone.status}`;
+
+      const details = [
+        { label: "Description", value: escapeHtml(zone.description || "") },
+        { label: "Notes", value: escapeHtml(zone.notes || "No notes added.") },
+        {
+          label: "Coords",
+          value: `x:${Math.round(zone.coords.x)} y:${Math.round(zone.coords.y)} w:${Math.round(zone.coords.w)} h:${Math.round(zone.coords.h)}`
+        }
+      ];
+
+      if (zone.contact) {
+        details.push({ label: "Contact", value: escapeHtml(zone.contact) });
+      }
+
+      if (zone.link) {
+        details.push({
+          label: "Link",
+          value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
+        });
+      }
+
+      modalBody.innerHTML = `
+        <ul class="detail-list">
+          ${details.map(item => `
+            <li class="detail-item">
+              <span class="detail-label">${escapeHtml(item.label)}</span>
+              <div class="detail-value">${item.value}</div>
+            </li>
+          `).join("")}
+        </ul>
+      `;
+    }
+
+    function openModal() {
+      modalBackdrop.classList.add("open");
+      modalSheet.classList.add("open");
+      modalSheet.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove("open");
+      modalSheet.classList.remove("open");
+      modalSheet.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
     }
 
     function selectZone(id, openDetails = true) {
@@ -849,65 +1413,6 @@
         });
     }
 
-    function escapeHtml(value) {
-      return String(value || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-
-    function openModal() {
-      modalBackdrop.classList.add("open");
-      modalSheet.classList.add("open");
-      modalSheet.setAttribute("aria-hidden", "false");
-      document.body.style.overflow = "hidden";
-    }
-
-    function closeModal() {
-      modalBackdrop.classList.remove("open");
-      modalSheet.classList.remove("open");
-      modalSheet.setAttribute("aria-hidden", "true");
-      document.body.style.overflow = "";
-    }
-
-    function renderModal(zone) {
-      modalTitle.textContent = `${zone.id} — ${zone.title}`;
-      modalSubtitle.textContent = `${zone.section} • ${zone.status}`;
-
-      const details = [
-        { label: "Description", value: escapeHtml(zone.description || "") },
-        { label: "Notes", value: escapeHtml(zone.notes || "No notes added.") },
-        {
-          label: "Coords",
-          value: `x:${Math.round(zone.coords.x)} y:${Math.round(zone.coords.y)} w:${Math.round(zone.coords.w)} h:${Math.round(zone.coords.h)}`
-        }
-      ];
-
-      if (zone.contact) {
-        details.push({ label: "Contact", value: escapeHtml(zone.contact) });
-      }
-
-      if (zone.link) {
-        details.push({
-          label: "Link",
-          value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
-        });
-      }
-
-      modalBody.innerHTML = `
-        <ul class="detail-list">
-          ${details.map(item => `
-            <li class="detail-item">
-              <span class="detail-label">${escapeHtml(item.label)}</span>
-              <div class="detail-value">${item.value}</div>
-            </li>
-          `).join("")}
-        </ul>
-      `;
-    }
-
     function clearSelection() {
       currentSelection = "";
       svg.querySelectorAll(".zone-group").forEach(group => applyZoneStyle(group, false));
@@ -994,9 +1499,9 @@
       const json = JSON.stringify(collectLayoutOverrides(), null, 2);
       try {
         await navigator.clipboard.writeText(json);
-        statusBar.textContent = "Layout JSON copied to clipboard.";
+        statusBar.textContent = "Layout JSON copied to clipboard. Paste it into zoneOverrides.";
       } catch {
-        statusBar.textContent = "Unable to copy automatically. Open DevTools console and inspect manually.";
+        statusBar.textContent = "Unable to copy automatically. JSON was written to the console.";
         console.log(json);
       }
     }
