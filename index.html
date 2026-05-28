@@ -110,21 +110,26 @@
       background: #012249;
     }
 
+    
     .map-wrapper {
       position: relative;
       width: 100%;
       max-width: 100%;
       margin: 0 auto;
       line-height: 0;
-
-      /* Updated touch support */
-      touch-action: pan-x pan-y pinch-zoom;
+      overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: contain;
     }
+
+
 
     .map-zoom-layer {
       position: relative;
-      transform-origin: top left;
+      transform-origin: 0 0;
+      will-change: transform;
     }
+
 
     .map-wrapper img {
       display: block;
@@ -136,7 +141,7 @@
       pointer-events: none;
     }
 
-    .map-overlay {
+        .map-overlay {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -144,9 +149,7 @@
       display: block;
       overflow: visible;
       z-index: 5;
-
-      /* Updated touch support */
-      touch-action: pan-x pan-y pinch-zoom;
+      touch-action: none;
     }
 
     .zone-group {
@@ -495,6 +498,92 @@
     let currentSelection = "";
     let dragState = null;
 
+    
+const mapWrapper = document.getElementById("mapWrapper");
+const zoomLayer = document.getElementById("zoomLayer");
+const mapImage = document.getElementById("mapImage");
+
+let suppressTapUntil = 0;
+
+let zState = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  startDist: 0,
+  startScale: 1,
+  panStartX: 0,
+  panStartY: 0,
+  lastX: 0,
+  lastY: 0,
+  lastT: 0,
+  vx: 0,
+  vy: 0,
+  moved: false
+};
+
+function applyZoom() {
+  zoomLayer.style.transform =
+    `translate(${zState.x}px,${zState.y}px) scale(${zState.scale})`;
+}
+
+function dist(a,b){
+  return Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
+}
+
+mapWrapper.addEventListener("touchstart", e => {
+  if (e.touches.length === 2) {
+    zState.startDist = dist(e.touches[0], e.touches[1]);
+    zState.startScale = zState.scale;
+  }
+
+  if (e.touches.length === 1 && zState.scale > 1) {
+    const t = e.touches[0];
+    zState.panStartX = t.clientX - zState.x;
+    zState.panStartY = t.clientY - zState.y;
+
+    zState.lastX = t.clientX;
+    zState.lastY = t.clientY;
+    zState.lastT = performance.now();
+    zState.vx = 0;
+    zState.vy = 0;
+    zState.moved = false;
+  }
+}, { passive:false });
+
+mapWrapper.addEventListener("touchmove", e => {
+
+  if (e.touches.length === 2) {
+    e.preventDefault();
+    const d = dist(e.touches[0], e.touches[1]);
+    zState.scale = Math.min(4, Math.max(1, zState.startScale * (d / zState.startDist)));
+    applyZoom();
+  }
+
+  if (e.touches.length === 1 && zState.scale > 1) {
+    e.preventDefault();
+
+    const t = e.touches[0];
+    const now = performance.now();
+    const dt = now - zState.lastT;
+
+    zState.x = t.clientX - zState.panStartX;
+    zState.y = t.clientY - zState.panStartY;
+
+    zState.vx = (t.clientX - zState.lastX) / dt * 16;
+    zState.vy = (t.clientY - zState.lastY) / dt * 16;
+
+    zState.lastX = t.clientX;
+    zState.lastY = t.clientY;
+    zState.lastT = now;
+
+    zState.moved = true;
+
+    applyZoom();
+  }
+
+}, { passive:false });
+
+
     /* ==========================================================
        Helpers
        ========================================================== */
@@ -518,6 +607,7 @@
     function shouldShowOverlay() {
       return SHOW_OVERLAY || EDITOR_MODE;
     }
+
 
     function escapeHtml(value) {
       return String(value || "")
@@ -587,66 +677,46 @@
        Modal
        ========================================================== */
 
+
     function renderModal(zone) {
-
-      modalTitle.textContent =
-        `${zone.id} — ${zone.title}`;
-
-      modalSubtitle.textContent =
-        `${zone.section} • ${zone.status}`;
-
+      modalTitle.textContent = `${zone.id} — ${zone.title}`;
+      modalSubtitle.textContent = `${zone.section} • ${zone.status}`;
+    
       const details = [];
-
+    
       if (zone.description) {
         details.push({
           label: "Description",
           value: escapeHtml(zone.description)
         });
       }
-
+    
       if (zone.contact) {
         details.push({
           label: "Contact",
           value: escapeHtml(zone.contact)
         });
       }
-
+    
       if (zone.link) {
         details.push({
           label: "Link",
-          value: `
-            <a
-              href="${escapeHtml(zone.link)}"
-              target="_blank"
-              rel="noopener"
-              style="color:#ffffff;"
-            >
-              Open related link
-            </a>
-          `
+          value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
         });
       }
-
+    
       modalBody.innerHTML = `
         <ul class="detail-list">
-
           ${details.map(item => `
             <li class="detail-item">
-
-              <span class="detail-label">
-                ${escapeHtml(item.label)}
-              </span>
-
-              <div class="detail-value">
-                ${item.value}
-              </div>
-
+              <span class="detail-label">${item.label}</span>
+              <div class="detail-value">${item.value}</div>
             </li>
           `).join("")}
-
         </ul>
       `;
     }
+
 
     function openModal() {
       modalSheet.classList.add("open");
