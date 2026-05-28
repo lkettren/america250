@@ -1,143 +1,722 @@
-i<!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>America250 Event Map</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pinewood Derby Interactive Map - Version 2</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --border: #d8dde8;
+      --text: #213043;
+      --muted: #5c6b7a;
+      --accent: #1d4ed8;
+      --open: rgba(34, 197, 94, 0.22);
+      --reserved: rgba(245, 158, 11, 0.25);
+      --feature: rgba(59, 130, 246, 0.18);
+      --selected: #dc2626;
+      --shadow: 0 8px 20px rgba(21, 32, 57, 0.10);
+    }
 
-<style>
-  body {
-    margin: 0;
-    font-family: Arial;
-  }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
 
-  .container {
-    display: flex;
-  }
+    .app {
+      display: grid;
+      grid-template-columns: minmax(560px, 1fr) 360px;
+      gap: 16px;
+      padding: 16px;
+      min-height: 100vh;
+    }
 
-  .map-container {
-    position: relative;
-  }
+    .map-card, .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
 
-  img {
-    max-width: 100%;
-    height: auto;
-  }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff, #f8fafc);
+    }
 
-  /* Right-side panel */
-  #panel {
-    width: 300px;
-    padding: 15px;
-    background: #f4f4f4;
-    border-left: 2px solid #ccc;
-  }
+    .toolbar h1 {
+      font-size: 18px;
+      margin: 0 12px 0 0;
+      white-space: nowrap;
+    }
 
-  #panel h3 {
-    margin-top: 0;
-  }
+    .controls {
+      display: flex;
+      flex: 1;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
 
-  /* Highlight overlay */
-  .highlight {
-    position: absolute;
-    border: 2px solid red;
-    pointer-events: none;
-  }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-</style>
+    input[type="search"], select {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      min-width: 180px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.15s ease;
+    }
+    button:hover { border-color: var(--accent); color: var(--accent); }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { filter: brightness(0.95); }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.18);
+    }
+
+    .map-shell {
+      position: relative;
+      padding: 10px;
+      overflow: auto;
+      background: #eef2f7;
+      height: calc(100vh - 110px);
+    }
+
+    .map-stage {
+      position: relative;
+      width: min(100%, 1180px);
+      margin: 0 auto;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+
+    #floorplan {
+      width: 100%;
+      display: block;
+      height: auto;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .zone {
+      fill: var(--open);
+      stroke: rgba(9, 30, 66, 0.42);
+      stroke-width: 2;
+      cursor: pointer;
+      vector-effect: non-scaling-stroke;
+      transition: fill 0.16s ease, stroke 0.16s ease, stroke-width 0.16s ease;
+    }
+    .zone.status-open { fill: var(--open); }
+    .zone.status-reserved { fill: var(--reserved); }
+    .zone.status-feature { fill: var(--feature); }
+    .zone:hover,
+    .zone:focus-visible {
+      stroke: var(--accent);
+      stroke-width: 3;
+      outline: none;
+    }
+    .zone.selected {
+      stroke: var(--selected);
+      stroke-width: 4;
+      fill: rgba(220, 38, 38, 0.14);
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel-header {
+      padding: 16px 18px 10px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff, #f8fafc);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .panel-body {
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .pill.open { background: #ecfdf3; color: #166534; }
+    .pill.reserved { background: #fff7ed; color: #9a3412; }
+    .pill.feature { background: #eff6ff; color: #1d4ed8; }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 10px 12px;
+      margin-top: 18px;
+      font-size: 14px;
+    }
+    .meta dt {
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .meta dd { margin: 0; }
+
+    .hint {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .match-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .small-note {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1080px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .map-shell {
+        height: auto;
+        max-height: none;
+      }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="app">
+    <section class="map-card">
+      <div class="toolbar">
+        <h1>Pinewood Derby Interactive Map</h1>
+        <div class="controls">
+          <div class="control-group">
+            <input id="searchBox" type="search" placeholder="Search booth, pack, feature, or note" aria-label="Search booths and areas" />
+          </div>
+          <div class="control-group">
+            <select id="jumpSelect" aria-label="Jump to booth or feature">
+              <option value="">Jump to booth or feature</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <button id="clearBtn" type="button">Clear selection</button>
+          </div>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span><i class="swatch" style="background: var(--open)"></i> Open / general</span>
+          <span><i class="swatch" style="background: var(--reserved)"></i> Reserved / staffed</span>
+          <span><i class="swatch" style="background: var(--feature)"></i> Event feature</span>
+        </div>
+      </div>
 
-<div class="container">
+      <div class="map-shell">
+        <div class="map-stage">
+          <img id="floorplan" src="A250 Map Online Version.png" alt="Interactive floor plan for the Pinewood Derby event" />
+          <svg id="overlay" viewBox="0 0 1544 2000" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Interactive zones over the event floor plan"></svg>
+        </div>
+      </div>
+    </section>
 
-  <!-- MAP -->
-  <div class="map-container">
-
-    <img src="floorplan.png" usemap="#map">
-
-    <div id="highlight" class="highlight" style="display:none;"></div>
-
-    <map name="map">
-
-      <!-- SAMPLE BOOTHS -->
-      <area shape="rect" coords="430,750,480,800" onclick="showBooth(event, 'A1')">
-      <area shape="rect" coords="430,700,480,750" onclick="showBooth(event, 'A2')">
-
-      <area shape="rect" coords="580,750,630,800" onclick="showBooth(event, 'B1')">
-      <area shape="rect" coords="580,700,630,750" onclick="showBooth(event, 'B2')">
-
-      <area shape="rect" coords="650,750,700,800" onclick="showBooth(event, 'C1')">
-      <area shape="rect" coords="650,700,700,750" onclick="showBooth(event, 'C2')">
-
-      <area shape="rect" coords="800,750,850,800" onclick="showBooth(event, 'D1')">
-      <area shape="rect" coords="800,700,850,750" onclick="showBooth(event, 'D2')">
-
-      <!-- Continue pattern for all booths -->
-
-    </map>
-
+    <aside class="panel">
+      <div class="panel-header">
+        <h2 id="panelTitle">Select a booth or feature</h2>
+      </div>
+      <div class="panel-body" id="panelBody">
+        <p class="hint">Select any highlighted area on the map to open a detail panel. You can also search by booth number, pack name, feature name, or any notes you add to the data block in the script.</p>
+        <ul class="match-list">
+          <li>A1-A18 and D1-D18 are generated as individual booths.</li>
+          <li>B1-B16 and C1-C18 are generated as center-row booths.</li>
+          <li>Event features such as Registration, VIP Area, Tracks, Stage, First Aid, and Loading are also interactive.</li>
+          <li>Update the <code>customAssignments</code> block in the page source to replace placeholder content with your actual event data.</li>
+        </ul>
+      </div>
+    </aside>
   </div>
 
-  <!-- DETAIL PANEL -->
-  <div id="panel">
-    <h3>Booth Details</h3>
-    <p>Click a booth to view info</p>
-  </div>
+  <script>
+    const IMAGE_BOUNDS = { width: 1544, height: 2000 };
 
-</div>
+    // Fine-tune these constants if you want to tighten the booth hitboxes.
+    const LAYOUT = {
+      rowTop: 552,
+      rowHeight: 34,
+      A: { x: 509, yStart: 552, w: 55, h: 34, rows: 18 },
+      B: { x: 680, yStart: 620, w: 56, h: 34, rows: 16 },
+      C: { x: 736, yStart: 552, w: 56, h: 34, rows: 18 },
+      D: { x: 913, yStart: 552, w: 56, h: 34, rows: 18 }
+    };
 
-<script>
+    const svg = document.getElementById('overlay');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelBody = document.getElementById('panelBody');
+    const searchBox = document.getElementById('searchBox');
+    const jumpSelect = document.getElementById('jumpSelect');
+    const clearBtn = document.getElementById('clearBtn');
 
-const boothData = {
-  "A1": {
-    title: "Pack 123",
-    description: "Tiger Den",
-    notes: "Near VIP area"
-  },
-  "A2": {
-    title: "Pack 456",
-    description: "Wolf Den",
-    notes: ""
-  },
-  "B1": {
-    title: "Scout Shop",
-    description: "Official merch",
-    notes: "Cash & card accepted"
-  },
-  "D1": {
-    title: "Pack 789",
-    description: "Bear Den",
-    notes: ""
-  }
-};
+    const placeholderNote = 'Replace this placeholder content with your actual booth assignment, description, and notes.';
 
-function showBooth(event, boothId) {
+    function boothDefaults(id, title, section, coords) {
+      return {
+        id,
+        title,
+        section,
+        description: `${title} in section ${section}`,
+        notes: placeholderNote,
+        contact: '',
+        status: 'open',
+        link: '',
+        coords
+      };
+    }
 
-  const panel = document.getElementById("panel");
-  const data = boothData[boothId];
+    function generateBooths(prefix, spec, count, descendingInternalLabel = false) {
+      const booths = [];
+      for (let row = 0; row < count; row++) {
+        const rowNumber = descendingInternalLabel ? count - row : row + 1;
+        const id = `${prefix}${rowNumber}`;
+        const y = spec.yStart + row * spec.h;
+        booths.push(boothDefaults(
+          id,
+          `Booth ${id}`,
+          prefix,
+          { x: spec.x, y, w: spec.w, h: spec.h }
+        ));
+      }
+      return booths;
+    }
 
-  if (!data) {
-    panel.innerHTML = "<h3>" + boothId + "</h3><p>No data assigned</p>";
-  } else {
-    panel.innerHTML = `
-      <h3>${boothId} - ${data.title}</h3>
-      <p><strong>Description:</strong> ${data.description}</p>
-      <p><strong>Notes:</strong> ${data.notes}</p>
-    `;
-  }
+    // Base map items generated from the floor plan.
+    const zones = [
+      ...generateBooths('A', LAYOUT.A, 18, true),
+      ...generateBooths('B', LAYOUT.B, 16, true),
+      ...generateBooths('C', LAYOUT.C, 18, true),
+      ...generateBooths('D', LAYOUT.D, 18, true),
+      {
+        id: 'SCOUT_SHOP',
+        title: 'Scout Shop',
+        section: 'Center Aisle',
+        description: 'Vendor / merch area shown at the top of section B.',
+        notes: 'Click here if you want a dedicated information panel for the merch area.',
+        contact: '',
+        status: 'reserved',
+        link: '',
+        coords: { x: 680, y: 552, w: 56, h: 68 }
+      },
+      {
+        id: 'REGISTRATION',
+        title: 'Registration',
+        section: 'North Entrance',
+        description: 'Main check-in area at the top center of the floor plan.',
+        notes: 'Add hours, staffing notes, or check-in instructions here.',
+        contact: '',
+        status: 'feature',
+        link: '',
+        coords: { x: 565, y: 110, w: 300, h: 98 }
+      },
+      {
+        id: 'FIRST_AID',
+        title: 'First Aid',
+        section: 'Northwest',
+        description: 'Medical support icon shown near the top-left of the floor plan.',
+        notes: 'You can add contact numbers or volunteer names here.',
+        contact: '',
+        status: 'feature',
+        link: '',
+        coords: { x: 437, y: 112, w: 96, h: 96 }
+      },
+      {
+        id: 'RESTROOM_NORTH',
+        title: 'Restrooms (North)',
+        section: 'Northeast',
+        description: 'Restroom icon shown near the top-right of the floor plan.',
+        notes: '',
+        contact: '',
+        status: 'feature',
+        link: '',
+        coords: { x: 937, y: 107, w: 104, h: 104 }
+      },
+      {
+        id: 'RESTROOM_SOUTH',
+        title: 'Restrooms (South)',
+        section: 'South Entrance',
+        description: 'Restroom icon shown near the bottom-center of the floor plan.',
+        notes: '',
+        contact: '',
+        status: 'feature',
+        link: '',
+        coords: { x: 776, y: 1822, w: 98, h: 98 }
+      },
+      {
+        id: 'TRACK_1',
+        title: 'Pinewood Derby Track 1',
+        section: 'Center Floor',
+        description: 'Upper racing track area.',
+        notes: 'Add schedule, age group, or heat notes here.',
+        contact: '',
+        status: 'reserved',
+        link: '',
+        coords: { x: 621, y: 410, w: 244, h: 108 }
+      },
+      {
+        id: 'TRACK_2',
+        title: 'Pinewood Derby Track 2',
+        section: 'Center Floor',
+        description: 'Lower racing track area.',
+        notes: 'Add schedule or lane assignments here.',
+        contact: '',
+        status: 'reserved',
+        link: '',
+        coords: { x: 621, y: 1189, w: 244, h: 104 }
+      },
+      {
+        id: 'VIP_AREA',
+        title: 'VIP Area',
+        section: 'Southwest',
+        description: 'Tall rectangular VIP zone along the left side of the floor plan.',
+        notes: 'Add host, access, or sponsor details here.',
+        contact: '',
+        status: 'reserved',
+        link: '',
+        coords: { x: 383, y: 1121, w: 139, h: 660 }
+      },
+      {
+        id: 'EVENT_STAGE',
+        title: 'Event Stage Area',
+        section: 'South Center',
+        description: 'Large stage/presentation area near the bottom-center.',
+        notes: 'Good place for ceremony notes or presentation times.',
+        contact: '',
+        status: 'feature',
+        link: '',
+        coords: { x: 640, y: 1543, w: 518, h: 285 }
+      },
+      {
+        id: 'LOADING',
+        title: 'Event Loading',
+        section: 'East Side',
+        description: 'Loading/staging area on the right side of the map.',
+        notes: 'Add access instructions or load-in time windows here.',
+        contact: '',
+        status: 'feature',
+        link: '',
+        coords: { x: 1048, y: 775, w: 198, h: 156 }
+      }
+    ];
 
-  // Highlight selected area
-  const coords = event.target.coords.split(",");
-  const highlight = document.getElementById("highlight");
+    // Update only the fields you need. Any matching id below will override the generated placeholder content.
+    const customAssignments = {
+      A1: {
+        title: 'Booth A1',
+        description: 'Sample booth entry for your first assignment.',
+        notes: 'Swap this with your actual pack/troop/vendor info.',
+        status: 'reserved',
+        contact: 'Optional contact name or phone'
+      },
+      B16: {
+        title: 'Booth B16',
+        description: 'Example center-row booth entry.',
+        status: 'open'
+      },
+      C18: {
+        title: 'Booth C18',
+        description: 'Example booth at the top of section C.',
+        notes: 'Useful spot for showcasing a special display.',
+        status: 'reserved'
+      },
+      D1: {
+        title: 'Booth D1',
+        description: 'Example booth on the east side.',
+        status: 'open'
+      },
+      REGISTRATION: {
+        notes: 'Example: Check-in opens at 8:00 AM. Late arrivals report here.',
+        contact: 'Registration Lead'
+      },
+      SCOUT_SHOP: {
+        notes: 'Example: Merchandise, patches, and on-site supplies.',
+        status: 'reserved'
+      },
+      EVENT_STAGE: {
+        notes: 'Example: Opening ceremony, awards, and announcements.',
+        status: 'feature'
+      }
+    };
 
-  highlight.style.left = coords[0] + "px";
-  highlight.style.top = coords[1] + "px";
-  highlight.style.width = (coords[2] - coords[0]) + "px";
-  highlight.style.height = (coords[3] - coords[1]) + "px";
+    const zoneMap = new Map(
+      zones.map(z => [z.id, { ...z, ...(customAssignments[z.id] || {}) }])
+    );
 
-  highlight.style.display = "block";
-}
+    let selectedId = '';
 
-</script>
+    function statusClass(status) {
+      const clean = (status || 'open').toLowerCase();
+      if (clean === 'reserved') return 'reserved';
+      if (clean === 'feature') return 'feature';
+      return 'open';
+    }
 
+    function createZoneElement(item) {
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', item.coords.x);
+      rect.setAttribute('y', item.coords.y);
+      rect.setAttribute('width', item.coords.w);
+      rect.setAttribute('height', item.coords.h);
+      rect.setAttribute('rx', 3);
+      rect.setAttribute('data-id', item.id);
+      rect.setAttribute('class', `zone status-${statusClass(item.status)}`);
+      rect.setAttribute('tabindex', '0');
+      rect.setAttribute('role', 'button');
+      rect.setAttribute('aria-label', `${item.id} ${item.title}`);
+      rect.addEventListener('click', () => selectZone(item.id, true));
+      rect.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter' || evt.key === ' ') {
+          evt.preventDefault();
+          selectZone(item.id, true);
+        }
+      });
+      return rect;
+    }
+
+    function drawZones() {
+      svg.innerHTML = '';
+      const sorted = [...zoneMap.values()].sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+      for (const item of sorted) {
+        svg.appendChild(createZoneElement(item));
+      }
+      buildJumpMenu(sorted);
+    }
+
+    function buildJumpMenu(items) {
+      const previous = jumpSelect.value;
+      jumpSelect.innerHTML = '<option value="">Jump to booth or feature</option>';
+      for (const item of items) {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = `${item.id} — ${item.title}`;
+        jumpSelect.appendChild(opt);
+      }
+      jumpSelect.value = previous && zoneMap.has(previous) ? previous : '';
+    }
+
+    function renderPanel(item) {
+      if (!item) {
+        panelTitle.textContent = 'Select a booth or feature';
+        panelBody.innerHTML = `
+          <p class="hint">Select any highlighted area on the map to open a detail panel. You can also search by booth number, pack name, feature name, or any notes you add to the data block in the script.</p>
+          <ul class="match-list">
+            <li>Use the search box to find booths by number or assignment.</li>
+            <li>Use the jump menu for fast navigation at large events.</li>
+            <li>Edit the <code>customAssignments</code> block inside this HTML file to replace placeholders.</li>
+          </ul>
+        `;
+        return;
+      }
+
+      panelTitle.textContent = `${item.id} — ${item.title}`;
+      const cleanStatus = statusClass(item.status);
+      const contactRow = item.contact ? `<dt>Contact</dt><dd>${escapeHtml(item.contact)}</dd>` : '';
+      const linkRow = item.link ? `<dt>Link</dt><dd><a href="${item.link}" target="_blank" rel="noopener">Open related link</a></dd>` : '';
+      panelBody.innerHTML = `
+        <span class="pill ${cleanStatus}">${cleanStatus}</span>
+        <p class="hint" style="margin-top: 16px; font-size: 15px; color: var(--text);">${escapeHtml(item.description || '')}</p>
+        <dl class="meta">
+          <dt>ID</dt><dd>${escapeHtml(item.id)}</dd>
+          <dt>Section</dt><dd>${escapeHtml(item.section || '')}</dd>
+          <dt>Notes</dt><dd>${escapeHtml(item.notes || '')}</dd>
+          ${contactRow}
+          ${linkRow}
+        </dl>
+        <div class="panel-actions">
+          <button class="primary" type="button" id="copyBtn">Copy details</button>
+          <button type="button" id="hashBtn">Copy direct link</button>
+        </div>
+        <div class="small-note">
+          Tip: If you host this page on GitHub Pages or another static site, you can update assignments by editing the <code>customAssignments</code> block and republishing.
+        </div>
+      `;
+
+      const copyBtn = document.getElementById('copyBtn');
+      const hashBtn = document.getElementById('hashBtn');
+      copyBtn?.addEventListener('click', () => {
+        const text = `${item.id} — ${item.title}\nSection: ${item.section}\nDescription: ${item.description}\nNotes: ${item.notes}${item.contact ? `\nContact: ${item.contact}` : ''}`;
+        navigator.clipboard.writeText(text).catch(() => {});
+        copyBtn.textContent = 'Copied';
+        setTimeout(() => copyBtn.textContent = 'Copy details', 1400);
+      });
+      hashBtn?.addEventListener('click', async () => {
+        const url = `${location.origin}${location.pathname}#${encodeURIComponent(item.id)}`;
+        try { await navigator.clipboard.writeText(url); } catch (e) {}
+        hashBtn.textContent = 'Link copied';
+        setTimeout(() => hashBtn.textContent = 'Copy direct link', 1400);
+      });
+    }
+
+    function selectZone(id, pushHash = false) {
+      if (!zoneMap.has(id)) return;
+      selectedId = id;
+      for (const el of svg.querySelectorAll('.zone')) {
+        el.classList.toggle('selected', el.dataset.id === id);
+      }
+      const item = zoneMap.get(id);
+      renderPanel(item);
+      jumpSelect.value = id;
+      if (pushHash) {
+        history.replaceState(null, '', `#${encodeURIComponent(id)}`);
+      }
+    }
+
+    function clearSelection() {
+      selectedId = '';
+      for (const el of svg.querySelectorAll('.zone')) {
+        el.classList.remove('selected');
+      }
+      renderPanel(null);
+      jumpSelect.value = '';
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+
+    function normalize(str) {
+      return (str || '').toLowerCase().trim();
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function findMatches(query) {
+      const q = normalize(query);
+      if (!q) return [];
+      return [...zoneMap.values()].filter(item => {
+        return [item.id, item.title, item.section, item.description, item.notes, item.contact]
+          .some(v => normalize(v).includes(q));
+      }).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+    }
+
+    searchBox.addEventListener('input', () => {
+      const matches = findMatches(searchBox.value);
+      for (const el of svg.querySelectorAll('.zone')) {
+        const id = el.dataset.id;
+        if (!searchBox.value.trim()) {
+          el.style.opacity = '1';
+        } else {
+          el.style.opacity = matches.some(m => m.id === id) ? '1' : '0.18';
+        }
+      }
+      if (matches.length === 1) {
+        selectZone(matches[0].id, false);
+      } else if (!searchBox.value.trim()) {
+        if (!selectedId) renderPanel(null);
+      } else {
+        panelTitle.textContent = matches.length ? `${matches.length} search match${matches.length === 1 ? '' : 'es'}` : 'No matches';
+        panelBody.innerHTML = matches.length
+          ? `<ul class="match-list">${matches.slice(0, 25).map(m => `<li><strong>${escapeHtml(m.id)}</strong> — ${escapeHtml(m.title)}</li>`).join('')}</ul>`
+          : `<p class="hint">No booths or features matched <strong>${escapeHtml(searchBox.value)}</strong>.</p>`;
+      }
+    });
+
+    searchBox.addEventListener('keydown', (evt) => {
+      if (evt.key === 'Enter') {
+        const matches = findMatches(searchBox.value);
+        if (matches[0]) selectZone(matches[0].id, true);
+      }
+    });
+
+    jumpSelect.addEventListener('change', () => {
+      const id = jumpSelect.value;
+      if (id) selectZone(id, true);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      searchBox.value = '';
+      for (const el of svg.querySelectorAll('.zone')) el.style.opacity = '1';
+      clearSelection();
+    });
+
+    drawZones();
+
+    const hashId = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (hashId && zoneMap.has(hashId)) {
+      selectZone(hashId, false);
+    }
+  </script>
 </body>
 </html>
