@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pinewood Derby Map</title>
+<title>America250 Map</title>
 
 <style>
 :root {
@@ -18,29 +18,52 @@ body {
   font-family: Arial;
 }
 
-/* Layout */
+/* ✅ RESPONSIVE LAYOUT */
 .app {
   display: grid;
   grid-template-columns: 1fr 350px;
   height: 100vh;
 }
 
+/* ✅ STACK ON MOBILE */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+/* MAP */
 .map-container {
   position: relative;
 }
 
-.map-container img {
+.map-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.map-wrapper img {
   width: 100%;
   height: auto;
   display: block;
 }
 
-/* OVERLAY BASE */
+/* ✅ SVG overlays always aligned */
+svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* OVERLAY */
 .zone {
   cursor: pointer;
 }
 
-/* Panel */
+/* PANEL */
 .panel {
   background: #012249;
   padding: 20px;
@@ -48,24 +71,44 @@ body {
   overflow-y: auto;
 }
 
+/* ✅ MOBILE PANEL STYLE */
+@media (max-width: 900px) {
+  .panel {
+    border-left: none;
+    border-top: 1px solid rgba(255,255,255,0.2);
+  }
+}
+
 .panel h2 {
   margin-top: 0;
 }
 
-/* Controls */
+/* TOOLBAR */
 .toolbar {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 10;
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
+/* ✅ MOBILE STACK */
+@media (max-width: 600px) {
+  .toolbar {
+    flex-direction: column;
+  }
+
+  input, select, button {
+    width: 100%;
+  }
+}
+
+/* INPUTS */
 input, select, button {
   background: #012249;
   color: #ffffff;
   border: 1px solid rgba(255,255,255,0.4);
-  padding: 8px;
-  margin-right: 5px;
+  padding: 10px;
+  font-size: 16px; /* ✅ mobile-friendly font */
 }
 
 input::placeholder {
@@ -87,37 +130,33 @@ button:hover {
   <div class="map-container">
 
     <div class="toolbar">
-      <input id="search" placeholder="Search..." />
+      <input id="search" placeholder="Search booth..." />
       <select id="jump">
-        <option value="">Jump to</option>
+        <option value="">Jump to booth</option>
       </select>
     </div>
 
-    <img src="floorplan.png">
-
-    <svg id="overlay" viewBox="0 0 1544 2000"
-         style="position:absolute;top:0;left:0;width:100%;height:100%"></svg>
+    <div class="map-wrapper">
+      <img src="A250 Map Online Version.png">
+      <svg id="overlay" viewBox="0 0 1544 2000"></svg>
+    </div>
 
   </div>
 
   <!-- PANEL -->
   <div class="panel">
     <h2 id="title">Select a Booth</h2>
-    <div id="content">Click on the map</div>
+    <div id="content">Tap a booth on the map</div>
   </div>
 
 </div>
 
 <script>
 
-/* ==========================================================
-   ✅ TOGGLE THIS
-   ========================================================== */
-const SHOW_OVERLAY = true;
+/* ✅ TOGGLE */
+const SHOW_OVERLAY = false;
 
-/* ==========================================================
-   Layout positions
-   ========================================================== */
+/* LAYOUT */
 const layout = {
   A: { x: 510, y: 550, w: 55, h: 34, rows: 18 },
   B: { x: 680, y: 620, w: 56, h: 34, rows: 16 },
@@ -128,12 +167,10 @@ const layout = {
 const zones = {};
 const svg = document.getElementById("overlay");
 
-/* ==========================================================
-   Apply overlay styling based on toggle
-   ========================================================== */
+/* STYLE TOGGLE */
 function applyOverlayStyle(rect) {
   if (SHOW_OVERLAY) {
-    rect.setAttribute("fill", "rgba(255,255,255,0.15)");
+    rect.setAttribute("fill", "rgba(255,255,255,0.2)");
     rect.setAttribute("stroke", "#ffffff");
     rect.setAttribute("stroke-width", "1");
   } else {
@@ -142,9 +179,7 @@ function applyOverlayStyle(rect) {
   }
 }
 
-/* ==========================================================
-   Generate booths
-   ========================================================== */
+/* GENERATE BOOTHS */
 function generate(section) {
   let s = layout[section];
 
@@ -162,7 +197,6 @@ function generate(section) {
 
     applyOverlayStyle(rect);
 
-    rect.classList.add("zone");
     rect.dataset.id = id;
 
     rect.onclick = () => select(id);
@@ -178,36 +212,24 @@ function generate(section) {
 
 ["A","B","C","D"].forEach(generate);
 
-/* ==========================================================
-   Custom assignments (edit here)
-   ========================================================== */
+/* DATA */
 Object.assign(zones, {
-  REGISTRATION: {
-    title: "Registration",
-    desc: "Check-in area"
-  },
-  VIP: {
-    title: "VIP Area",
-    desc: "Reserved seating"
-  }
+  REGISTRATION: { title: "Registration", desc: "Check-in area" },
+  VIP: { title: "VIP Area", desc: "Reserved seating" }
 });
 
-/* ==========================================================
-   Selection logic
-   ========================================================== */
-let selected = null;
-
+/* SELECTION */
 function select(id) {
 
-  selected = id;
-
-  document.querySelectorAll(".zone").forEach(z => {
-    if (SHOW_OVERLAY && z.dataset.id === id) {
-      z.setAttribute("fill", "rgba(255,255,255,0.3)");
-    } else {
-      applyOverlayStyle(z);
-    }
+  document.querySelectorAll("#overlay rect").forEach(r => {
+    applyOverlayStyle(r);
   });
+
+  let selectedRect = document.querySelector(`[data-id='${id}']`);
+
+  if (SHOW_OVERLAY && selectedRect) {
+    selectedRect.setAttribute("fill", "rgba(255,255,255,0.4)");
+  }
 
   let data = zones[id] || { title: id, desc: "No data" };
 
@@ -217,25 +239,20 @@ function select(id) {
   location.hash = id;
 }
 
-/* ==========================================================
-   Search
-   ========================================================== */
+/* SEARCH */
 document.getElementById("search").oninput = (e) => {
   let val = e.target.value.toLowerCase();
 
-  Object.keys(zones).forEach(id => {
+  document.querySelectorAll("#overlay rect").forEach(r => {
+    let id = r.dataset.id;
     let match = id.toLowerCase().includes(val);
 
-    document.querySelectorAll(`[data-id='${id}']`).forEach(el => {
-      el.style.pointerEvents = match || !val ? 'auto' : 'none';
-      el.style.opacity = match || !val ? 1 : 0;
-    });
+    r.style.opacity = match || !val ? 1 : 0.1;
+    r.style.pointerEvents = match || !val ? "auto" : "none";
   });
 };
 
-/* ==========================================================
-   Jump dropdown
-   ========================================================== */
+/* JUMP MENU */
 let jump = document.getElementById("jump");
 
 Object.keys(zones).sort().forEach(id => {
@@ -249,9 +266,7 @@ jump.onchange = () => {
   if (jump.value) select(jump.value);
 };
 
-/* ==========================================================
-   Load from URL hash
-   ========================================================== */
+/* HASH LOAD */
 if (location.hash) {
   let id = location.hash.replace("#","");
   if (zones[id]) select(id);
@@ -261,4 +276,3 @@ if (location.hash) {
 
 </body>
 </html>
-``
