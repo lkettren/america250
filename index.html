@@ -481,7 +481,8 @@
   const clearBtn = document.getElementById("clearBtn");
   const copyLayoutBtn = document.getElementById("copyLayoutBtn");
 
-  const statusBar = document.getElementById("statusBar");
+  const statusBar = document.getElementById("statusBar") || {
+  textContent: ""};
 
   const modalSheet = document.getElementById("modalSheet");
   const closeModalBtn = document.getElementById("closeModalBtn");
