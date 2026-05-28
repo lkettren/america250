@@ -126,11 +126,13 @@
       height: 100%;
       display: block;
       overflow: visible;
+      z-index: 5;
     }
 
     .zone {
       cursor: pointer;
       vector-effect: non-scaling-stroke;
+      pointer-events: all; /* critical for invisible clickable zones */
     }
 
     .zone:focus-visible {
@@ -353,11 +355,13 @@
     const SHOW_OVERLAY = false;
 
     /* ==========================================================
-       Optional mobile touch padding for booth hit areas
-       Increase a little if tapping feels too precise.
+       Optional touch padding for booth/feature hit areas
+       Increase if tapping feels too precise.
        ========================================================== */
     const MOBILE_HIT_PADDING = 8;
     const DESKTOP_HIT_PADDING = 2;
+    const MOBILE_FEATURE_PADDING = 14;
+    const DESKTOP_FEATURE_PADDING = 6;
 
     const IMAGE_WIDTH = 1544;
     const IMAGE_HEIGHT = 2000;
@@ -389,8 +393,12 @@
       return window.matchMedia("(max-width: 900px)").matches;
     }
 
-    function getHitPadding() {
+    function getBoothHitPadding() {
       return isMobileView() ? MOBILE_HIT_PADDING : DESKTOP_HIT_PADDING;
+    }
+
+    function getFeatureHitPadding() {
+      return isMobileView() ? MOBILE_FEATURE_PADDING : DESKTOP_FEATURE_PADDING;
     }
 
     function getZoneStyle(isSelected = false) {
@@ -414,6 +422,7 @@
       el.setAttribute("fill", style.fill);
       el.setAttribute("stroke", style.stroke);
       el.setAttribute("stroke-width", style.strokeWidth);
+      el.style.pointerEvents = "all";
     }
 
     function makeBooth(id, title, section, x, y, w, h, extra = {}) {
@@ -430,10 +439,30 @@
       };
     }
 
+    function addFeature(id, title, section, description, x, y, w, h, extra = {}) {
+      const pad = getFeatureHitPadding();
+      zones.set(id, {
+        id,
+        title,
+        section,
+        description: description || "",
+        notes: extra.notes || "",
+        contact: extra.contact || "",
+        status: extra.status || "Feature",
+        link: extra.link || "",
+        coords: {
+          x: x - pad,
+          y: y - pad,
+          w: w + (pad * 2),
+          h: h + (pad * 2)
+        }
+      });
+    }
+
     function buildBooths() {
       zones.clear();
 
-      const pad = getHitPadding();
+      const pad = getBoothHitPadding();
 
       ["A", "B", "C", "D"].forEach(section => {
         const s = layout[section];
@@ -452,89 +481,78 @@
       });
 
       /* Interactive non-booth features */
-      zones.set("REGISTRATION", {
-        id: "REGISTRATION",
-        title: "Registration",
-        section: "North Entrance",
-        description: "Main check-in area.",
-        notes: "Add hours or volunteer notes here.",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 565, y: 110, w: 300, h: 98 }
-      });
+      addFeature(
+        "REGISTRATION",
+        "Registration",
+        "North Entrance",
+        "Main check-in area.",
+        565, 110, 300, 98,
+        { notes: "Add hours or volunteer notes here." }
+      );
 
-      zones.set("FIRST_AID", {
-        id: "FIRST_AID",
-        title: "First Aid",
-        section: "Northwest",
-        description: "Medical support area.",
-        notes: "",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 437, y: 112, w: 96, h: 96 }
-      });
+      addFeature(
+        "FIRST_AID",
+        "First Aid",
+        "Northwest",
+        "Medical support area.",
+        437, 112, 96, 96
+      );
 
-      zones.set("TRACK_1", {
-        id: "TRACK_1",
-        title: "Pinewood Derby Track 1",
-        section: "Center Floor",
-        description: "Upper race track area.",
-        notes: "",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 621, y: 410, w: 244, h: 108 }
-      });
+      addFeature(
+        "TRACK_1",
+        "Pinewood Derby Track 1",
+        "Center Floor",
+        "Upper race track area.",
+        621, 410, 244, 108
+      );
 
-      zones.set("TRACK_2", {
-        id: "TRACK_2",
-        title: "Pinewood Derby Track 2",
-        section: "Center Floor",
-        description: "Lower race track area.",
-        notes: "",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 621, y: 1189, w: 244, h: 104 }
-      });
+      addFeature(
+        "TRACK_2",
+        "Pinewood Derby Track 2",
+        "Center Floor",
+        "Lower race track area.",
+        621, 1189, 244, 104
+      );
 
-      zones.set("VIP_AREA", {
-        id: "VIP_AREA",
-        title: "VIP Area",
-        section: "Southwest",
-        description: "VIP reserved area.",
-        notes: "",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 383, y: 1121, w: 139, h: 660 }
-      });
+      addFeature(
+        "VIP_AREA",
+        "VIP Area",
+        "Southwest",
+        "VIP reserved area.",
+        383, 1121, 139, 660
+      );
 
-      zones.set("EVENT_STAGE", {
-        id: "EVENT_STAGE",
-        title: "Event Stage Area",
-        section: "South Center",
-        description: "Stage / ceremony area.",
-        notes: "",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 640, y: 1543, w: 518, h: 285 }
-      });
+      addFeature(
+        "EVENT_STAGE",
+        "Event Stage Area",
+        "South Center",
+        "Stage / ceremony area.",
+        640, 1543, 518, 285
+      );
 
-      zones.set("LOADING", {
-        id: "LOADING",
-        title: "Event Loading",
-        section: "East Side",
-        description: "Loading / support area.",
-        notes: "",
-        contact: "",
-        status: "Feature",
-        link: "",
-        coords: { x: 1048, y: 775, w: 198, h: 156 }
-      });
+      addFeature(
+        "LOADING",
+        "Event Loading",
+        "East Side",
+        "Loading / support area.",
+        1048, 775, 198, 156
+      );
+
+      addFeature(
+        "RESTROOM_NORTH",
+        "Restrooms (North)",
+        "Northeast",
+        "North restroom area.",
+        937, 107, 104, 104
+      );
+
+      addFeature(
+        "RESTROOM_SOUTH",
+        "Restrooms (South)",
+        "South Entrance",
+        "South restroom area.",
+        776, 1822, 98, 98
+      );
 
       /* Customize your real assignments here */
       const customAssignments = {
@@ -557,6 +575,12 @@
         },
         REGISTRATION: {
           notes: "Check-in opens here."
+        },
+        FIRST_AID: {
+          notes: "Medical support / first response station."
+        },
+        EVENT_STAGE: {
+          notes: "Main stage and program area."
         }
       };
 
@@ -580,14 +604,21 @@
         rect.setAttribute("ry", "3");
         rect.setAttribute("class", "zone");
         rect.setAttribute("tabindex", "0");
+        rect.setAttribute("role", "button");
+        rect.setAttribute("aria-label", `${zone.id} ${zone.title}`);
         rect.dataset.id = zone.id;
 
         applyZoneStyle(rect, zone.id === currentSelection);
 
         rect.addEventListener("click", (e) => {
           e.preventDefault();
+          e.stopPropagation();
           selectZone(zone.id);
         });
+
+        rect.addEventListener("touchstart", () => {
+          /* no-op, but helps some mobile browsers treat the element as interactive */
+        }, { passive: true });
 
         rect.addEventListener("keydown", (e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -641,12 +672,12 @@
       modalSubtitle.textContent = `${zone.section} • ${zone.status}`;
 
       const details = [
-        { label: "Description", value: zone.description || "" },
-        { label: "Notes", value: zone.notes || "No notes added." }
+        { label: "Description", value: escapeHtml(zone.description || "") },
+        { label: "Notes", value: escapeHtml(zone.notes || "No notes added.") }
       ];
 
       if (zone.contact) {
-        details.push({ label: "Contact", value: zone.contact });
+        details.push({ label: "Contact", value: escapeHtml(zone.contact) });
       }
 
       if (zone.link) {
@@ -692,7 +723,7 @@
       searchBox.value = "";
       svg.querySelectorAll(".zone").forEach(el => {
         el.style.opacity = "1";
-        el.style.pointerEvents = "auto";
+        el.style.pointerEvents = "all";
       });
       statusBar.textContent = "Tap a booth or feature to open details.";
       history.replaceState(null, "", location.pathname + location.search);
@@ -705,7 +736,7 @@
       if (!q) {
         svg.querySelectorAll(".zone").forEach(el => {
           el.style.opacity = "1";
-          el.style.pointerEvents = "auto";
+          el.style.pointerEvents = "all";
         });
         statusBar.textContent = currentSelection
           ? `Selected ${currentSelection}`
@@ -732,7 +763,7 @@
 
         if (el) {
           el.style.opacity = match ? "1" : "0.08";
-          el.style.pointerEvents = match ? "auto" : "none";
+          el.style.pointerEvents = match ? "all" : "none";
         }
 
         if (match) {
@@ -799,4 +830,3 @@
   </script>
 </body>
 </html>
-
