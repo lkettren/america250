@@ -1,1290 +1,236 @@
 <!DOCTYPE html>
-<!-- working version with scroll issues -->
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+<title>America250 Map</title>
 
-  <!-- Updated viewport for pinch zoom -->
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
-  />
+<style>
+body { margin:0; background:#012249; color:#fff; font-family:Arial }
 
-  <title>America250 Map</title>
+.toolbar {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:12px;
+  background:#012249;
+}
 
-  <style>
-    :root {
-      --bg: #012249;
-      --text: #ffffff;
-      --muted: rgba(255, 255, 255, 0.75);
-      --border: rgba(255, 255, 255, 0.22);
-      --input-bg: rgba(255, 255, 255, 0.06);
-      --modal-bg: #012249;
-      --overlay-fill: rgba(255, 255, 255, 0.16);
-      --overlay-stroke: rgba(255, 0, 0, 0.85);
-      --selected-fill: rgba(255, 255, 255, 0.28);
-      --selected-stroke: #ffffff;
-      --handle-fill: #ffffff;
-      --handle-stroke: #012249;
-      --shadow: 0 -12px 26px rgba(0, 0, 0, 0.35);
-      --radius: 16px;
-    }
+.toolbar input, .toolbar select, .toolbar button {
+  min-height:44px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  background:#ffffff10;
+  color:#fff;
+  padding:10px;
+}
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
+.map-wrapper {
+  position:relative;
+  overflow:hidden;
 
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-      min-height: 100%;
-    }
+  /* ✅ KEY CHANGE */
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior: contain;
+}
 
-    body {
-      overflow-x: hidden;
-    }
+.map-zoom-layer {
+  transform-origin:0 0;
+  will-change:transform;
+}
 
-    .app {
-      width: 100%;
-      min-height: 100vh;
-      background: var(--bg);
-    }
+.map-wrapper img {
+  width:100%;
+  pointer-events:none;
+}
 
-    .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      padding: 12px;
-      background: #012249;
-      border-bottom: 1px solid var(--border);
-    }
+.map-overlay {
+  position:absolute;
+  inset:0;
 
-    .toolbar input,
-    .toolbar select,
-    .toolbar button {
-      min-height: 44px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--input-bg);
-      color: var(--text);
-      font-size: 16px;
-      padding: 10px 12px;
-      outline: none;
-    }
+  /* ✅ KEY CHANGE */
+  touch-action: pan-y pinch-zoom;
+}
 
-    .toolbar input::placeholder {
-      color: var(--muted);
-    }
+.zone {
+  fill:transparent;
+  stroke:red;
+  stroke-width:1;
+  cursor:pointer;
+}
 
-    .toolbar input {
-      flex: 1 1 220px;
-      min-width: 0;
-    }
+.modal-sheet {
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:12px;
+  background:#012249;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:16px;
+  padding:15px;
+  transform:translateY(120%);
+  transition:.3s;
+}
 
-    .toolbar select {
-      flex: 1 1 180px;
-      min-width: 0;
-    }
+.modal-sheet.open { transform:translateY(0); }
 
-    .toolbar button {
-      flex: 0 0 auto;
-      cursor: pointer;
-    }
+.detail-item {
+  border:1px solid rgba(255,255,255,.2);
+  padding:10px;
+}
 
-    .toolbar button:hover,
-    .toolbar button:focus-visible {
-      background: rgba(255, 255, 255, 0.12);
-    }
-
-    .map-shell {
-      width: 100%;
-      padding: 0;
-      margin: 0;
-      background: #012249;
-    }
-
-    
-    .map-wrapper {
-      position: relative;
-      width: 100%;
-      max-width: 100%;
-      margin: 0 auto;
-      line-height: 0;
-      overflow: hidden;
-      touch-action: none;
-      overscroll-behavior: contain;
-    }
-
-
-
-    .map-zoom-layer {
-      position: relative;
-      transform-origin: 0 0;
-      will-change: transform;
-    }
-
-
-    .map-wrapper img {
-      display: block;
-      width: 100%;
-      height: auto;
-      max-width: none;
-      user-select: none;
-      -webkit-user-drag: none;
-      pointer-events: none;
-    }
-
-        .map-overlay {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      overflow: visible;
-      z-index: 5;
-      touch-action: none;
-    }
-
-    .zone-group {
-      pointer-events: all;
-    }
-
-    .zone {
-      cursor: pointer;
-      vector-effect: non-scaling-stroke;
-      pointer-events: all;
-    }
-
-    .zone-group.editing .zone {
-      cursor: move;
-    }
-
-    .zone-group.selected .zone {
-      stroke-dasharray: 6 4;
-    }
-
-    .resize-handle {
-      display: none;
-      pointer-events: all;
-      cursor: nwse-resize;
-      vector-effect: non-scaling-stroke;
-    }
-
-    .zone-group.selected.editor .resize-handle,
-    .zone-group.editor .resize-handle {
-      display: block;
-    }
-
-    .zone-label {
-      display: none;
-      pointer-events: none;
-      fill: #ffffff;
-      font-size: 12px;
-      font-weight: 700;
-      paint-order: stroke;
-      stroke: rgba(1, 34, 73, 0.85);
-      stroke-width: 2px;
-      vector-effect: non-scaling-stroke;
-    }
-
-    .zone-group.editor .zone-label {
-      display: block;
-    }
-
-    .status-bar {
-      padding: 10px 14px 14px;
-      font-size: 14px;
-      color: var(--muted);
-      background: #012249;
-      white-space: pre-wrap;
-    }
-
-    /* Removed backdrop darkening entirely */
-    .modal-backdrop {
-      display: none;
-    }
-
-    /* Improved mobile modal anchoring */
-    .modal-sheet {
-      position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: 12px;
-      z-index: 100;
-
-      background: var(--modal-bg);
-      color: var(--text);
-
-      border-radius: 18px;
-      border: 1px solid var(--border);
-
-      box-shadow: var(--shadow);
-
-      transform: translateY(120%);
-      transition: transform 0.28s ease;
-
-      padding:
-        10px
-        16px
-        calc(18px + env(safe-area-inset-bottom));
-
-      max-height: min(70vh, 680px);
-
-      overflow-y: auto;
-
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .modal-sheet.open {
-      transform: translateY(0);
-    }
-
-    .drag-handle {
-      width: 54px;
-      height: 6px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.42);
-      margin: 6px auto 14px;
-    }
-
-    .modal-header {
-      display: flex;
-      align-items: start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-
-    .modal-title-wrap {
-      min-width: 0;
-    }
-
-    .modal-title {
-      margin: 0;
-      font-size: 22px;
-      line-height: 1.2;
-      color: var(--text);
-    }
-
-    .modal-subtitle {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .modal-close {
-      flex: 0 0 auto;
-      border: 1px solid var(--border);
-      background: var(--input-bg);
-      color: var(--text);
-      border-radius: 10px;
-      min-height: 40px;
-      min-width: 40px;
-      cursor: pointer;
-      font-size: 18px;
-    }
-
-    .modal-body {
-      font-size: 16px;
-      line-height: 1.5;
-    }
-
-    .detail-list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 10px;
-    }
-
-    .detail-item {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.04);
-    }
-
-    .detail-label {
-      display: block;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-      margin-bottom: 4px;
-    }
-
-    .detail-value {
-      color: var(--text);
-      word-break: break-word;
-    }
-
-    @media (min-width: 900px) {
-      .toolbar {
-        padding: 14px 16px;
-      }
-
-      .map-shell {
-        max-width: 1280px;
-        margin: 0 auto;
-      }
-
-      .modal-sheet {
-        left: auto;
-        right: 24px;
-        bottom: 24px;
-
-        width: 420px;
-
-        max-height: 72vh;
-      }
-    }
-  </style>
+</style>
 </head>
 
 <body>
-  <div class="app">
 
-    <div class="toolbar">
-      <input
-        id="searchBox"
-        type="search"
-        placeholder="Search booth or feature"
-      />
+<div class="toolbar">
+  <input id="searchBox" placeholder="Search" />
+  <select id="jumpMenu">
+    <option value="">Jump to booth or feature</option>
+  </select>
+  <button id="copyLayoutBtn">Copy Layout</button>
+  <button id="clearBtn">Clear</button>
+</div>
 
-      <select id="jumpMenu">
-        <option value="">Jump to booth or feature</option>
-      </select>
-
-      <button id="copyLayoutBtn" type="button">
-        Copy Layout JSON
-      </button>
-
-      <button id="clearBtn" type="button">
-        Clear
-      </button>
-    </div>
-
-    <div class="map-shell">
-      <div class="map-wrapper" id="mapWrapper">
-
-        <div class="map-zoom-layer" id="zoomLayer">
-
-          <img
-            id="mapImage"
-            src="floorplan.png"
-            alt="Interactive America250 floor plan"
-          />
-
-          <svg
-            id="overlay"
-            class="map-overlay"
-            viewBox="0 0 1544 2000"
-            preserveAspectRatio="xMidYMid meet"
-            aria-label="Interactive booth overlay"
-          ></svg>
-
-        </div>
-      </div>
-    </div>
-
-    <div class="status-bar" id="statusBar">
-      Tap a booth or feature to open details.
-    </div>
+<div class="map-wrapper" id="mapWrapper">
+  <div id="zoomLayer" class="map-zoom-layer">
+    <img src="floorplan.png" />
+    <svg id="overlay" viewBox="0 0 1544 2000" class="map-overlay"></svg>
   </div>
+</div>
 
-  <section
-    id="modalSheet"
-    class="modal-sheet"
-    aria-hidden="true"
-  >
+<div id="modalSheet" class="modal-sheet">
+  <h3 id="modalTitle"></h3>
+  <div id="modalBody"></div>
+  <button onclick="closeModal()">Close</button>
+</div>
 
-    <div class="drag-handle"></div>
+<script>
+const zones = new Map();
+const svg = document.getElementById("overlay");
+const wrapper = document.getElementById("mapWrapper");
+const layer = document.getElementById("zoomLayer");
 
-    <div class="modal-header">
+let suppressTap = 0;
 
-      <div class="modal-title-wrap">
-        <h2 class="modal-title" id="modalTitle">
-          Select a booth
-        </h2>
+// ✅ clean escape
+function escapeHtml(v){
+  return String(v||"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;");
+}
 
-        <p class="modal-subtitle" id="modalSubtitle">
-          Tap any booth or feature on the map
-        </p>
-      </div>
+// ---------- demo CSV-like load ----------
+zones.set("A1",{id:"A1",title:"Booth A1",description:"Sample",coords:{x:500,y:1200,w:60,h:40}});
+zones.set("REG",{id:"REG",title:"Registration",description:"Main check-in",coords:{x:600,y:120,w:250,h:100}});
 
-      <button
-        id="closeModalBtn"
-        class="modal-close"
-        type="button"
-        aria-label="Close"
-      >
-        ×
-      </button>
+function draw(){
+  svg.innerHTML="";
+  zones.forEach(z=>{
+    const r=document.createElementNS("http://www.w3.org/2000/svg","rect");
+    r.setAttribute("x",z.coords.x);
+    r.setAttribute("y",z.coords.y);
+    r.setAttribute("width",z.coords.w);
+    r.setAttribute("height",z.coords.h);
+    r.classList.add("zone");
 
-    </div>
-
-    <div class="modal-body" id="modalBody">
-      <ul class="detail-list">
-        <li class="detail-item">
-          <span class="detail-label">Instructions</span>
-          <div class="detail-value">
-            Tap a booth or feature to view details here.
-          </div>
-        </li>
-      </ul>
-    </div>
-
-  </section>
-
-  <script>
-  /* ==========================================================
-     TOGGLES
-     ========================================================== */
-  const SHOW_OVERLAY = true;
-  const EDITOR_MODE = false;
-  const ZONES_CSV_URL = "zones.csv";
-
-  /* ==========================================================
-     CONSTANTS
-     ========================================================== */
-  const MOBILE_HIT_PADDING = 8;
-  const DESKTOP_HIT_PADDING = 2;
-
-  const MOBILE_FEATURE_PADDING = 14;
-  const DESKTOP_FEATURE_PADDING = 6;
-
-  const MIN_ZONE_SIZE = 20;
-  const HANDLE_SIZE = 18;
-
-  const IMAGE_WIDTH = 1544;
-  const IMAGE_HEIGHT = 2000;
-
-  /* ==========================================================
-     DOM
-     ========================================================== */
-  const mapWrapper = document.getElementById("mapWrapper");
-  const zoomLayer = document.getElementById("zoomLayer");
-  const mapImage = document.getElementById("mapImage");
-  const svg = document.getElementById("overlay");
-
-  const searchBox = document.getElementById("searchBox");
-  const jumpMenu = document.getElementById("jumpMenu");
-
-  const clearBtn = document.getElementById("clearBtn");
-  const copyLayoutBtn = document.getElementById("copyLayoutBtn");
-
-  const statusBar = document.getElementById("statusBar");
-
-  const modalSheet = document.getElementById("modalSheet");
-  const closeModalBtn = document.getElementById("closeModalBtn");
-
-  const modalTitle = document.getElementById("modalTitle");
-  const modalSubtitle = document.getElementById("modalSubtitle");
-  const modalBody = document.getElementById("modalBody");
-
-  /* ==========================================================
-     STATE
-     ========================================================== */
-  const zones = new Map();
-
-  let currentSelection = "";
-  let dragState = null;
-  let momentumFrame = null;
-  let suppressTapUntil = 0;
-
-  const zoomState = {
-    scale: 1,
-    minScale: 1,
-    maxScale: 4,
-    x: 0,
-    y: 0,
-
-    isPinching: false,
-    isPanning: false,
-
-    startDistance: 0,
-    startScale: 1,
-
-    panStartClientX: 0,
-    panStartClientY: 0,
-    panOriginX: 0,
-    panOriginY: 0,
-
-    lastClientX: 0,
-    lastClientY: 0,
-    lastTime: 0,
-
-    velX: 0,
-    velY: 0,
-
-    moved: false,
-    lastTapTime: 0
-  };
-
-  /* ==========================================================
-     HELPERS
-     ========================================================== */
-  function isMobileView() {
-    return window.matchMedia("(max-width: 900px)").matches;
-  }
-
-  function getBoothHitPadding() {
-    return isMobileView() ? MOBILE_HIT_PADDING : DESKTOP_HIT_PADDING;
-  }
-
-  function getFeatureHitPadding() {
-    return isMobileView() ? MOBILE_FEATURE_PADDING : DESKTOP_FEATURE_PADDING;
-  }
-
-  function shouldShowOverlay() {
-    return SHOW_OVERLAY || EDITOR_MODE;
-  }
-
-  function escapeHtml(value) {
-    return String(value || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
-  }
-
-  function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-  }
-
-  /* ==========================================================
-     CSV HELPERS
-     ========================================================== */
-  function parseCsvLine(line) {
-    const result = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      const next = line[i + 1];
-
-      if (ch === '"' && inQuotes && next === '"') {
-        current += '"';
-        i++;
-        continue;
-      }
-
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-
-      if (ch === "," && !inQuotes) {
-        result.push(current);
-        current = "";
-        continue;
-      }
-
-      current += ch;
-    }
-
-    result.push(current);
-    return result.map(v => v.trim());
-  }
-
-  function csvValue(row, idx) {
-    return idx >= 0 ? (row[idx] ?? "") : "";
-  }
-
-  function toNumber(value, fallback = 0) {
-    const n = parseFloat(value);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  /* ==========================================================
-     ZONE STYLING
-     ========================================================== */
-  function getZoneStyle(isSelected = false) {
-    if (shouldShowOverlay()) {
-      return {
-        fill: isSelected
-          ? "var(--selected-fill)"
-          : "var(--overlay-fill)",
-        stroke: isSelected
-          ? "var(--selected-stroke)"
-          : "var(--overlay-stroke)",
-        strokeWidth: isSelected ? "2" : "1"
-      };
-    }
-
-    return {
-      fill: "transparent",
-      stroke: "transparent",
-      strokeWidth: "0"
-    };
-  }
-
-  function applyZoneStyle(group, isSelected = false) {
-    const rect = group.querySelector(".zone");
-    const handle = group.querySelector(".resize-handle");
-    const label = group.querySelector(".zone-label");
-
-    const style = getZoneStyle(isSelected);
-
-    rect.setAttribute("fill", style.fill);
-    rect.setAttribute("stroke", style.stroke);
-    rect.setAttribute("stroke-width", style.strokeWidth);
-
-    group.classList.toggle("selected", isSelected);
-    group.classList.toggle("editor", EDITOR_MODE);
-
-    if (handle) {
-      handle.style.display = EDITOR_MODE ? "block" : "none";
-    }
-
-    if (label) {
-      label.style.display = EDITOR_MODE ? "block" : "none";
-    }
-  }
-
-  /* ==========================================================
-     MODAL
-     ========================================================== */
-  function renderModal(zone) {
-    modalTitle.textContent = `${zone.id} — ${zone.title}`;
-    modalSubtitle.textContent = `${zone.section} • ${zone.status || "Open"}`;
-
-    const details = [];
-
-    if (zone.description) {
-      details.push({
-        label: "Description",
-        value: escapeHtml(zone.description)
-      });
-    }
-
-    if (zone.contact) {
-      details.push({
-        label: "Contact",
-        value: escapeHtml(zone.contact)
-      });
-    }
-
-    if (zone.link) {
-      details.push({
-        label: "Link",
-        value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
-      });
-    }
-
-    modalBody.innerHTML = `
-      <ul class="detail-list">
-        ${details.map(item => `
-          <li class="detail-item">
-            <span class="detail-label">${item.label}</span>
-            <div class="detail-value">${item.value}</div>
-          </li>
-        `).join("")}
-      </ul>
-    `;
-  }
-
-  function openModal() {
-    modalSheet.classList.add("open");
-    modalSheet.setAttribute("aria-hidden", "false");
-  }
-
-  function closeModal() {
-    modalSheet.classList.remove("open");
-    modalSheet.setAttribute("aria-hidden", "true");
-  }
-
-  /* ==========================================================
-     SELECTION
-     ========================================================== */
-  function selectZone(id, openDetails = true) {
-    const zone = zones.get(id);
-    if (!zone) return;
-
-    currentSelection = id;
-
-    svg.querySelectorAll(".zone-group").forEach(group => {
-      applyZoneStyle(group, group.dataset.id === id);
+    r.addEventListener("click",(e)=>{
+      if(performance.now()<suppressTap) return;
+      showModal(z);
     });
 
-    jumpMenu.value = id;
+    svg.appendChild(r);
+  });
+}
 
-    statusBar.textContent = EDITOR_MODE
-      ? `Selected ${zone.id}`
-      : `Selected ${zone.id} — ${zone.title}`;
+function showModal(z){
+  modalTitle.innerText = z.id+" — "+z.title;
+  modalBody.innerHTML = `<div class="detail-item">${escapeHtml(z.description)}</div>`;
+  modal.classList.add("open");
+}
 
-    if (openDetails) {
-      renderModal(zone);
-      openModal();
-    }
+function closeModal(){
+  modal.classList.remove("open");
+}
+
+const modal=document.getElementById("modalSheet");
+const modalTitle=document.getElementById("modalTitle");
+const modalBody=document.getElementById("modalBody");
+
+// ---------- polished zoom ----------
+let zState={scale:1,x:0,y:0,startDist:0,startScale:1,panX:0,panY:0,lastX:0,lastY:0,lastT:0,vx:0,vy:0,moved:false,tapTime:0};
+
+function dist(a,b){return Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY)}
+
+function apply(){
+  layer.style.transform=`translate(${zState.x}px,${zState.y}px) scale(${zState.scale})`;
+}
+
+// ✅ DO NOT BLOCK NORMAL SCROLL unless zooming
+wrapper.addEventListener("touchstart",(e)=>{
+  if(e.touches.length===2){
+    e.preventDefault();
+    zState.startDist=dist(e.touches[0],e.touches[1]);
+    zState.startScale=zState.scale;
   }
 
-  /* ==========================================================
-     CSV LOADER
-     ========================================================== */
-  async function buildZones() {
-    zones.clear();
+  if(e.touches.length===1 && zState.scale>1){
+    const t=e.touches[0];
+    zState.panX=t.clientX-zState.x;
+    zState.panY=t.clientY-zState.y;
+    zState.lastX=t.clientX;
+    zState.lastY=t.clientY;
+    zState.lastT=performance.now();
+    zState.vx=0; zState.vy=0;
+  }
+},{passive:false});
 
-    try {
-      const res = await fetch(ZONES_CSV_URL, { cache: "no-store" });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+wrapper.addEventListener("touchmove",(e)=>{
+  if(e.touches.length===2){
+    e.preventDefault();
 
-      const text = await res.text();
+    const d=dist(e.touches[0],e.touches[1]);
+    zState.scale=Math.min(4,Math.max(1,zState.startScale*(d/zState.startDist)));
 
-      const lines = text
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(Boolean);
-
-      if (lines.length < 2) {
-        throw new Error("CSV is empty or missing data rows.");
-      }
-
-      const headers = parseCsvLine(lines[0]);
-
-      const idx = {
-        id: headers.indexOf("id"),
-        title: headers.indexOf("title"),
-        section: headers.indexOf("section"),
-        description: headers.indexOf("description"),
-        x: headers.indexOf("x"),
-        y: headers.indexOf("y"),
-        w: headers.indexOf("w"),
-        h: headers.indexOf("h"),
-        status: headers.indexOf("status"),
-        contact: headers.indexOf("contact"),
-        link: headers.indexOf("link")
-      };
-
-      const required = ["id", "title", "section", "description", "x", "y", "w", "h"];
-      const missing = required.filter(name => idx[name] === -1);
-
-      if (missing.length) {
-        throw new Error(`Missing required CSV columns: ${missing.join(", ")}`);
-      }
-
-      const boothPad = getBoothHitPadding();
-      const featurePad = getFeatureHitPadding();
-
-      for (let i = 1; i < lines.length; i++) {
-        const row = parseCsvLine(lines[i]);
-        const id = csvValue(row, idx.id);
-        if (!id) continue;
-
-        const section = csvValue(row, idx.section);
-        const isFeature = (csvValue(row, idx.status) || "").toLowerCase() === "feature";
-        const pad = isFeature ? featurePad : boothPad;
-
-        const zone = {
-          id,
-          title: csvValue(row, idx.title) || id,
-          section: section || "",
-          description: csvValue(row, idx.description) || "",
-          status: csvValue(row, idx.status) || "Open",
-          contact: csvValue(row, idx.contact) || "",
-          link: csvValue(row, idx.link) || "",
-          coords: {
-            x: toNumber(csvValue(row, idx.x)) - pad,
-            y: toNumber(csvValue(row, idx.y)) - pad,
-            w: toNumber(csvValue(row, idx.w)) + (pad * 2),
-            h: toNumber(csvValue(row, idx.h)) + (pad * 2)
-          }
-        };
-
-        zones.set(zone.id, zone);
-      }
-
-      statusBar.textContent = `Loaded ${zones.size} zones from CSV.`;
-
-    } catch (err) {
-      console.error("Failed to load zones.csv:", err);
-      statusBar.textContent = `Failed to load ${ZONES_CSV_URL}: ${err.message}`;
-    }
+    apply();
+    zState.moved=true;
+    return;
   }
 
-  /* ==========================================================
-     DRAWING
-     ========================================================== */
-  function updateGroupGeometry(group, zone) {
-    const rect = group.querySelector(".zone");
-    const handle = group.querySelector(".resize-handle");
-    const label = group.querySelector(".zone-label");
+  if(e.touches.length===1 && zState.scale>1){
+    e.preventDefault();
 
-    rect.setAttribute("x", zone.coords.x);
-    rect.setAttribute("y", zone.coords.y);
-    rect.setAttribute("width", zone.coords.w);
-    rect.setAttribute("height", zone.coords.h);
+    const t=e.touches[0];
+    const now=performance.now();
+    const dt=now-zState.lastT;
 
-    if (handle) {
-      handle.setAttribute("x", zone.coords.x + zone.coords.w - HANDLE_SIZE);
-      handle.setAttribute("y", zone.coords.y + zone.coords.h - HANDLE_SIZE);
-      handle.setAttribute("width", HANDLE_SIZE);
-      handle.setAttribute("height", HANDLE_SIZE);
-    }
+    zState.x=t.clientX-zState.panX;
+    zState.y=t.clientY-zState.panY;
 
-    if (label) {
-      label.setAttribute("x", zone.coords.x + 4);
-      label.setAttribute("y", zone.coords.y + 14);
-      label.textContent = zone.id;
-    }
+    zState.vx=(t.clientX-zState.lastX)/dt*16;
+    zState.vy=(t.clientY-zState.lastY)/dt*16;
+
+    zState.lastX=t.clientX;
+    zState.lastY=t.clientY;
+    zState.lastT=now;
+
+    apply();
+    zState.moved=true;
   }
+},{passive:false});
 
-  function drawZones() {
-    svg.innerHTML = "";
-
-    zones.forEach(zone => {
-      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
-      group.setAttribute("class", "zone-group");
-      group.setAttribute("tabindex", "0");
-      group.setAttribute("role", "button");
-      group.setAttribute("aria-label", `${zone.id} ${zone.title}`);
-      group.dataset.id = zone.id;
-
-      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      rect.setAttribute("class", "zone");
-      rect.setAttribute("rx", "3");
-      rect.setAttribute("ry", "3");
-
-      group.appendChild(rect);
-      svg.appendChild(group);
-
-      updateGroupGeometry(group, zone);
-      applyZoneStyle(group, zone.id === currentSelection);
-
-      group.addEventListener("click", (e) => {
-        if (performance.now() < suppressTapUntil) {
-          e.preventDefault();
-          e.stopPropagation();
-          return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-
-        selectZone(zone.id, true);
-      });
-
-      group.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          selectZone(zone.id, true);
-        }
-      });
-    });
+wrapper.addEventListener("touchend",()=>{
+  if(zState.moved){
+    suppressTap=performance.now()+250;
+    zState.moved=false;
   }
+});
 
-  function populateJumpMenu() {
-    jumpMenu.innerHTML = `<option value="">Jump to booth or feature</option>`;
-
-    [...zones.values()]
-      .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
-      .forEach(zone => {
-        const opt = document.createElement("option");
-        opt.value = zone.id;
-        opt.textContent = `${zone.id} — ${zone.title}`;
-        jumpMenu.appendChild(opt);
-      });
-  }
-
-  /* ==========================================================
-     SEARCH
-     ========================================================== */
-  function searchZones(query) {
-    const q = (query || "").toLowerCase().trim();
-
-    if (!q) {
-      svg.querySelectorAll(".zone-group").forEach(group => {
-        group.style.opacity = "1";
-        group.style.pointerEvents = "all";
-      });
-      return;
-    }
-
-    let firstMatch = "";
-    let matchCount = 0;
-
-    zones.forEach((zone, id) => {
-      const group = svg.querySelector(`.zone-group[data-id="${CSS.escape(id)}"]`);
-
-      const haystack = [
-        zone.id,
-        zone.title,
-        zone.section,
-        zone.description,
-        zone.status,
-        zone.contact
-      ].join(" ").toLowerCase();
-
-      const match = haystack.includes(q);
-
-      if (group) {
-        group.style.opacity = match ? "1" : "0.08";
-        group.style.pointerEvents = match ? "all" : "none";
-      }
-
-      if (match) {
-        matchCount++;
-        if (!firstMatch) firstMatch = id;
-      }
-    });
-
-    if (matchCount === 1 && firstMatch) {
-      selectZone(firstMatch, true);
-    }
-  }
-
-  /* ==========================================================
-     COPY LAYOUT (optional, hidden when EDITOR_MODE=false)
-     ========================================================== */
-  function collectLayoutOverrides() {
-    const overrides = {};
-    zones.forEach((zone, id) => {
-      overrides[id] = {
-        x: Math.round(zone.coords.x),
-        y: Math.round(zone.coords.y),
-        w: Math.round(zone.coords.w),
-        h: Math.round(zone.coords.h)
-      };
-    });
-    return overrides;
-  }
-
-  async function copyLayoutJson() {
-    const json = JSON.stringify(collectLayoutOverrides(), null, 2);
-    try {
-      await navigator.clipboard.writeText(json);
-      statusBar.textContent = "Layout JSON copied to clipboard.";
-    } catch {
-      statusBar.textContent = "Unable to copy automatically. JSON was written to the console.";
-      console.log(json);
-    }
-  }
-
-  /* ==========================================================
-     POLISHED ZOOM UX
-     pinch + pan + inertia + bounds + double-tap
-     ========================================================== */
-  function stopMomentum() {
-    if (momentumFrame) {
-      cancelAnimationFrame(momentumFrame);
-      momentumFrame = null;
-    }
-  }
-
-  function getViewportWidth() {
-    return mapWrapper.clientWidth;
-  }
-
-  function getViewportHeight() {
-    return mapWrapper.clientHeight || mapImage.clientHeight || 0;
-  }
-
-  function getContentWidth() {
-    return getViewportWidth() * zoomState.scale;
-  }
-
-  function getContentHeight() {
-    const baseH = mapImage.clientHeight || 0;
-    return baseH * zoomState.scale;
-  }
-
-  function clampPan() {
-    if (zoomState.scale <= 1) {
-      zoomState.x = 0;
-      zoomState.y = 0;
-      return;
-    }
-
-    const viewportW = getViewportWidth();
-    const viewportH = getViewportHeight();
-    const contentW = getContentWidth();
-    const contentH = getContentHeight();
-
-    const minX = Math.min(0, viewportW - contentW);
-    const minY = Math.min(0, viewportH - contentH);
-
-    zoomState.x = Math.max(minX, Math.min(0, zoomState.x));
-    zoomState.y = Math.max(minY, Math.min(0, zoomState.y));
-  }
-
-  function applyZoomTransform() {
-    clampPan();
-    zoomLayer.style.transform =
-      `translate3d(${zoomState.x}px, ${zoomState.y}px, 0) scale(${zoomState.scale})`;
-  }
-
-  function resetZoom() {
-    stopMomentum();
-    zoomState.scale = 1;
-    zoomState.x = 0;
-    zoomState.y = 0;
-    zoomState.velX = 0;
-    zoomState.velY = 0;
-    applyZoomTransform();
-  }
-
-  function getDistance(t1, t2) {
-    const dx = t2.clientX - t1.clientX;
-    const dy = t2.clientY - t1.clientY;
-    return Math.hypot(dx, dy);
-  }
-
-  function getMidpoint(t1, t2, rect) {
-    return {
-      x: ((t1.clientX + t2.clientX) / 2) - rect.left,
-      y: ((t1.clientY + t2.clientY) / 2) - rect.top
-    };
-  }
-
-  function zoomAroundPoint(targetScale, screenX, screenY) {
-    const clampedScale = Math.max(
-      zoomState.minScale,
-      Math.min(zoomState.maxScale, targetScale)
-    );
-
-    const worldX = (screenX - zoomState.x) / zoomState.scale;
-    const worldY = (screenY - zoomState.y) / zoomState.scale;
-
-    zoomState.scale = clampedScale;
-    zoomState.x = screenX - (worldX * zoomState.scale);
-    zoomState.y = screenY - (worldY * zoomState.scale);
-
-    applyZoomTransform();
-  }
-
-  function startMomentum() {
-    stopMomentum();
-
-    const friction = 0.94;
-    const minVelocity = 0.08;
-
-    function step() {
-      zoomState.x += zoomState.velX;
-      zoomState.y += zoomState.velY;
-
-      const beforeX = zoomState.x;
-      const beforeY = zoomState.y;
-
-      clampPan();
-
-      if (zoomState.x !== beforeX) zoomState.velX = 0;
-      if (zoomState.y !== beforeY) zoomState.velY = 0;
-
-      zoomState.velX *= friction;
-      zoomState.velY *= friction;
-
-      applyZoomTransform();
-
-      if (
-        Math.abs(zoomState.velX) < minVelocity &&
-        Math.abs(zoomState.velY) < minVelocity
-      ) {
-        stopMomentum();
-        return;
-      }
-
-      momentumFrame = requestAnimationFrame(step);
-    }
-
-    momentumFrame = requestAnimationFrame(step);
-  }
-
-  function handleTouchStart(e) {
-    if (EDITOR_MODE) return;
-
-    if (e.touches.length === 1) {
-      const now = performance.now();
-      const tapGap = now - zoomState.lastTapTime;
-      zoomState.lastTapTime = now;
-
-      if (tapGap > 0 && tapGap < 280) {
-        e.preventDefault();
-        const rect = mapWrapper.getBoundingClientRect();
-        const t = e.touches[0];
-        const localX = t.clientX - rect.left;
-        const localY = t.clientY - rect.top;
-
-        if (zoomState.scale < 2) {
-          zoomAroundPoint(2, localX, localY);
-        } else {
-          resetZoom();
-        }
-
-        suppressTapUntil = performance.now() + 300;
-        return;
-      }
-    }
-
-    if (e.touches.length === 2) {
-      stopMomentum();
-
-      zoomState.isPinching = true;
-      zoomState.isPanning = false;
-      zoomState.moved = false;
-
-      zoomState.startDistance = getDistance(e.touches[0], e.touches[1]);
-      zoomState.startScale = zoomState.scale;
-      zoomState.velX = 0;
-      zoomState.velY = 0;
-    } else if (e.touches.length === 1 && zoomState.scale > 1) {
-      stopMomentum();
-
-      const t = e.touches[0];
-      zoomState.isPanning = true;
-      zoomState.isPinching = false;
-      zoomState.moved = false;
-
-      zoomState.panStartClientX = t.clientX;
-      zoomState.panStartClientY = t.clientY;
-      zoomState.panOriginX = zoomState.x;
-      zoomState.panOriginY = zoomState.y;
-
-      zoomState.lastClientX = t.clientX;
-      zoomState.lastClientY = t.clientY;
-      zoomState.lastTime = performance.now();
-
-      zoomState.velX = 0;
-      zoomState.velY = 0;
-    }
-  }
-
-  function handleTouchMove(e) {
-    if (EDITOR_MODE) return;
-
-    if (e.touches.length === 2) {
-      e.preventDefault();
-
-      const rect = mapWrapper.getBoundingClientRect();
-      const distance = getDistance(e.touches[0], e.touches[1]);
-      const midpoint = getMidpoint(e.touches[0], e.touches[1], rect);
-
-      const scaleFactor = distance / zoomState.startDistance;
-      const targetScale = zoomState.startScale * scaleFactor;
-
-      zoomAroundPoint(targetScale, midpoint.x, midpoint.y);
-      zoomState.moved = true;
-    } else if (e.touches.length === 1 && zoomState.scale > 1 && zoomState.isPanning) {
-      e.preventDefault();
-
-      const t = e.touches[0];
-      const now = performance.now();
-      const dt = Math.max(1, now - zoomState.lastTime);
-
-      zoomState.x = zoomState.panOriginX + (t.clientX - zoomState.panStartClientX);
-      zoomState.y = zoomState.panOriginY + (t.clientY - zoomState.panStartClientY);
-
-      zoomState.velX = ((t.clientX - zoomState.lastClientX) / dt) * 16;
-      zoomState.velY = ((t.clientY - zoomState.lastClientY) / dt) * 16;
-
-      zoomState.lastClientX = t.clientX;
-      zoomState.lastClientY = t.clientY;
-      zoomState.lastTime = now;
-
-      if (
-        Math.abs(t.clientX - zoomState.panStartClientX) > 3 ||
-        Math.abs(t.clientY - zoomState.panStartClientY) > 3
-      ) {
-        zoomState.moved = true;
-      }
-
-      applyZoomTransform();
-    }
-  }
-
-  function handleTouchEnd(e) {
-    if (EDITOR_MODE) return;
-
-    if (zoomState.isPinching && e.touches.length < 2) {
-      zoomState.isPinching = false;
-      if (zoomState.moved) suppressTapUntil = performance.now() + 250;
-    }
-
-    if (zoomState.isPanning && e.touches.length === 0) {
-      zoomState.isPanning = false;
-
-      if (zoomState.moved) {
-        suppressTapUntil = performance.now() + 250;
-      }
-
-      if (zoomState.scale > 1) {
-        startMomentum();
-      } else {
-        resetZoom();
-      }
-    }
-
-    if (zoomState.scale <= 1) {
-      resetZoom();
-    }
-  }
-
-  /* ==========================================================
-     INIT
-     ========================================================== */
-  async function init() {
-    if (!EDITOR_MODE) {
-      if (copyLayoutBtn) copyLayoutBtn.style.display = "none";
-      if (clearBtn) clearBtn.style.display = "none";
-    } else {
-      if (copyLayoutBtn) {
-        copyLayoutBtn.addEventListener("click", copyLayoutJson);
-      }
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener("click", () => {
-        searchBox.value = "";
-        svg.querySelectorAll(".zone-group").forEach(group => {
-          group.style.opacity = "1";
-          group.style.pointerEvents = "all";
-        });
-        closeModal();
-        statusBar.textContent = "Tap a booth or feature to open details.";
-      });
-    }
-
-    searchBox.addEventListener("input", (e) => {
-      searchZones(e.target.value);
-    });
-
-    jumpMenu.addEventListener("change", () => {
-      if (jumpMenu.value) {
-        selectZone(jumpMenu.value, true);
-      }
-    });
-
-    closeModalBtn.addEventListener("click", closeModal);
-
-    mapWrapper.addEventListener("touchstart", handleTouchStart, { passive: false });
-    mapWrapper.addEventListener("touchmove", handleTouchMove, { passive: false });
-    mapWrapper.addEventListener("touchend", handleTouchEnd, { passive: false });
-    mapWrapper.addEventListener("touchcancel", handleTouchEnd, { passive: false });
-
-    window.addEventListener("resize", applyZoomTransform);
-
-    await buildZones();
-    drawZones();
-    populateJumpMenu();
-    applyZoomTransform();
-
-    statusBar.textContent = "Tap a booth or feature to open details.";
-  }
-
-  init();
+// ---------- init ----------
+draw();
 </script>
+
 </body>
 </html>
-```
