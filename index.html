@@ -1523,6 +1523,14 @@
       clearBtn.addEventListener("click", clearSelection);
       copyLayoutBtn.addEventListener("click", copyLayoutJson);
 
+      
+      // Hide editor-only controls in production mode
+      if (!EDITOR_MODE) {
+        copyLayoutBtn.style.display = "none";
+        clearBtn.style.display = "none";
+      }
+
+
       modalBackdrop.addEventListener("click", closeModal);
       closeModalBtn.addEventListener("click", closeModal);
 
