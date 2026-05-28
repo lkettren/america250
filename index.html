@@ -657,7 +657,9 @@
      MODAL
      ========================================================== */
   function renderModal(zone) {
-    modalTitle.textContent = `${zone.id} — ${zone.title}`;
+    modalTitle.textContent = zone.title
+      ? `${zone.id} — ${zone.title}`
+      : zone.id;
     modalSubtitle.textContent = `${zone.section} • ${zone.status || "Open"}`;
 
     const details = [];
