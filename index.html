@@ -1,248 +1,802 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>America250 Map</title>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <title>America250 Map</title>
 
-<style>
-:root {
-  --bg: #012249;
-  --text: #ffffff;
-}
+  <style>
+    :root {
+      --bg: #012249;
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.75);
+      --border: rgba(255, 255, 255, 0.22);
+      --input-bg: rgba(255, 255, 255, 0.06);
+      --modal-bg: #012249;
+      --overlay-fill: rgba(255, 255, 255, 0.16);
+      --overlay-stroke: rgba(255, 255, 255, 0.85);
+      --selected-fill: rgba(255, 255, 255, 0.28);
+      --selected-stroke: #ffffff;
+      --shadow: 0 -12px 26px rgba(0, 0, 0, 0.35);
+      --radius: 16px;
+    }
 
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Arial;
-}
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-/* MAP AREA */
-.map-container {
-  position: relative;
-}
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      min-height: 100%;
+    }
 
-.map-wrapper {
-  position: relative;
-}
+    body {
+      overflow-x: hidden;
+    }
 
-.map-wrapper img {
-  width: 100%;
-}
+    .app {
+      width: 100%;
+      min-height: 100vh;
+      background: var(--bg);
+    }
 
-/* SVG overlay */
-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px;
+      background: #012249;
+      border-bottom: 1px solid var(--border);
+    }
 
-.zone {
-  cursor: pointer;
-}
+    .toolbar input,
+    .toolbar select,
+    .toolbar button {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 16px;
+      padding: 10px 12px;
+      outline: none;
+    }
 
-/* TOOLBAR */
-.toolbar {
-  padding: 10px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+    .toolbar input::placeholder {
+      color: var(--muted);
+    }
 
-input, select {
-  background: #012249;
-  color: white;
-  border: 1px solid rgba(255,255,255,0.4);
-  padding: 10px;
-  flex: 1;
-}
+    .toolbar input {
+      flex: 1 1 220px;
+      min-width: 0;
+    }
 
-/* ✅ MODAL BACKDROP */
-.modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: none;
-  z-index: 100;
-}
+    .toolbar select {
+      flex: 1 1 180px;
+      min-width: 0;
+    }
 
-/* ✅ MODAL PANEL */
-.modal {
-  position: fixed;
-  bottom: -100%;
-  left: 0;
-  width: 100%;
-  background: #012249;
-  padding: 20px;
-  border-radius: 15px 15px 0 0;
-  transition: bottom 0.3s ease;
-  z-index: 200;
-}
+    .toolbar button {
+      flex: 0 0 auto;
+      cursor: pointer;
+    }
 
-.modal.open {
-  bottom: 0;
-}
+    .toolbar button:hover,
+    .toolbar button:focus-visible {
+      background: rgba(255, 255, 255, 0.12);
+    }
 
-.modal h2 {
-  margin-top: 0;
-}
+    .map-shell {
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      background: #012249;
+    }
 
-/* ✅ CLOSE BAR */
-.drag-bar {
-  width: 50px;
-  height: 5px;
-  background: rgba(255,255,255,0.5);
-  border-radius: 5px;
-  margin: 0 auto 10px auto;
-}
+    .map-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      line-height: 0;
+    }
 
-</style>
+    .map-wrapper img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-width: none;
+    }
+
+    .map-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      overflow: visible;
+    }
+
+    .zone {
+      cursor: pointer;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .zone:focus-visible {
+      outline: none;
+    }
+
+    .status-bar {
+      padding: 10px 14px 14px;
+      font-size: 14px;
+      color: var(--muted);
+      background: #012249;
+    }
+
+    /* Modal backdrop */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.48);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+      z-index: 90;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Bottom sheet modal */
+    .modal-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      background: var(--modal-bg);
+      color: var(--text);
+      border-top-left-radius: 18px;
+      border-top-right-radius: 18px;
+      box-shadow: var(--shadow);
+      transform: translateY(105%);
+      transition: transform 0.28s ease;
+      padding: 10px 16px calc(18px + env(safe-area-inset-bottom));
+      max-height: 78vh;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+
+    .modal-sheet.open {
+      transform: translateY(0);
+    }
+
+    .drag-handle {
+      width: 54px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.42);
+      margin: 6px auto 14px;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .modal-title-wrap {
+      min-width: 0;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    .modal-subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .modal-close {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 10px;
+      min-height: 40px;
+      min-width: 40px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .modal-body {
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .detail-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .detail-label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    @media (min-width: 900px) {
+      .toolbar {
+        padding: 14px 16px;
+      }
+
+      .map-shell {
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+
+      .modal-sheet {
+        left: auto;
+        right: 24px;
+        bottom: 24px;
+        width: min(420px, calc(100vw - 48px));
+        max-height: 72vh;
+        border-radius: 18px;
+        transform: translateY(120%);
+      }
+
+      .modal-sheet.open {
+        transform: translateY(0);
+      }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="app">
+    <div class="toolbar">
+      <input id="searchBox" type="search" placeholder="Search booth, pack, feature, or note" />
+      <select id="jumpMenu">
+        <option value="">Jump to booth or feature</option>
+      </select>
+      <button id="clearBtn" type="button">Clear</button>
+    </div>
 
-<!-- MAP -->
-<div class="map-container">
+    <div class="map-shell">
+      <div class="map-wrapper" id="mapWrapper">
+        <img
+          id="mapImage"
+          src="floorplan.png"
+          alt="Interactive America250 floor plan"
+        />
+        <svg
+          id="overlay"
+          class="map-overlay"
+          viewBox="0 0 1544 2000"
+          preserveAspectRatio="xMidYMid meet"
+          aria-label="Interactive booth overlay"
+        ></svg>
+      </div>
+    </div>
 
-  <div class="toolbar">
-    <input id="search" placeholder="Search booth..." />
-    <select id="jump">
-      <option value="">Jump to booth</option>
-    </select>
+    <div class="status-bar" id="statusBar">
+      Tap a booth or feature to open details.
+    </div>
   </div>
 
-  <div class="map-wrapper">
-    <img src="floorplan.png">
-    <svg id="overlay" viewBox="0 0 1544 2000"></svg>
-  </div>
+  <div id="modalBackdrop" class="modal-backdrop"></div>
 
-</div>
+  <section id="modalSheet" class="modal-sheet" aria-hidden="true">
+    <div class="drag-handle"></div>
 
-<!-- MODAL BACKDROP -->
-<div id="backdrop" class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h2 class="modal-title" id="modalTitle">Select a booth</h2>
+        <p class="modal-subtitle" id="modalSubtitle">Tap any booth or feature on the map</p>
+      </div>
+      <button id="closeModalBtn" class="modal-close" type="button" aria-label="Close">×</button>
+    </div>
 
-<!-- MODAL -->
-<div id="modal" class="modal">
-  <div class="drag-bar"></div>
-  <h2 id="title">Booth</h2>
-  <div id="content">Details</div>
-</div>
+    <div class="modal-body" id="modalBody">
+      <ul class="detail-list">
+        <li class="detail-item">
+          <span class="detail-label">Instructions</span>
+          <div class="detail-value">Tap a booth or event feature to view details here.</div>
+        </li>
+      </ul>
+    </div>
+  </section>
 
-<script>
+  <script>
+    /* ==========================================================
+       TOGGLE THIS
+       true  = show booth rectangles for alignment/debugging
+       false = hide booth rectangles in production
+       ========================================================== */
+    const SHOW_OVERLAY = false;
 
-/* ✅ TOGGLE */
-const SHOW_OVERLAY = false;
+    /* ==========================================================
+       Optional mobile touch padding for booth hit areas
+       Increase a little if tapping feels too precise.
+       ========================================================== */
+    const MOBILE_HIT_PADDING = 8;
+    const DESKTOP_HIT_PADDING = 2;
 
-/* LAYOUT */
-const layout = {
-  A: { x: 510, y: 550, w: 55, h: 34, rows: 18 },
-  B: { x: 680, y: 620, w: 56, h: 34, rows: 16 },
-  C: { x: 740, y: 550, w: 56, h: 34, rows: 18 },
-  D: { x: 910, y: 550, w: 56, h: 34, rows: 18 }
-};
+    const IMAGE_WIDTH = 1544;
+    const IMAGE_HEIGHT = 2000;
 
-const svg = document.getElementById("overlay");
-let zones = {};
-
-/* STYLE CONTROL */
-function applyStyle(rect) {
-  if (SHOW_OVERLAY) {
-    rect.setAttribute("fill", "rgba(255,255,255,0.2)");
-    rect.setAttribute("stroke", "#ffffff");
-  } else {
-    rect.setAttribute("fill", "transparent");
-    rect.setAttribute("stroke", "transparent");
-  }
-}
-
-/* GENERATE BOOTHS */
-function generate(section) {
-  let s = layout[section];
-
-  for (let i = 0; i < s.rows; i++) {
-
-    let num = s.rows - i;
-    let id = section + num;
-
-    let rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-
-    rect.setAttribute("x", s.x);
-    rect.setAttribute("y", s.y + (i * s.h));
-    rect.setAttribute("width", s.w);
-    rect.setAttribute("height", s.h);
-
-    applyStyle(rect);
-
-    rect.dataset.id = id;
-    rect.onclick = () => openModal(id);
-
-    svg.appendChild(rect);
-
-    zones[id] = {
-      title: id,
-      desc: "Assign this booth"
+    const layout = {
+      A: { x: 510, y: 550, w: 55, h: 34, rows: 18 },
+      B: { x: 680, y: 620, w: 56, h: 34, rows: 16 },
+      C: { x: 740, y: 550, w: 56, h: 34, rows: 18 },
+      D: { x: 910, y: 550, w: 56, h: 34, rows: 18 }
     };
-  }
-}
 
-["A","B","C","D"].forEach(generate);
+    const svg = document.getElementById("overlay");
+    const searchBox = document.getElementById("searchBox");
+    const jumpMenu = document.getElementById("jumpMenu");
+    const clearBtn = document.getElementById("clearBtn");
+    const statusBar = document.getElementById("statusBar");
 
-/* SAMPLE DATA */
-Object.assign(zones, {
-  REGISTRATION: { title: "Registration", desc: "Check-in area" },
-  VIP: { title: "VIP Area", desc: "Reserved seating" }
-});
+    const modalSheet = document.getElementById("modalSheet");
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalSubtitle = document.getElementById("modalSubtitle");
+    const modalBody = document.getElementById("modalBody");
 
-/* ✅ MODAL CONTROL */
-function openModal(id) {
-  let data = zones[id] || { title: id, desc: "No data" };
+    const zones = new Map();
+    let currentSelection = "";
 
-  document.getElementById("title").innerText = data.title;
-  document.getElementById("content").innerText = data.desc;
+    function isMobileView() {
+      return window.matchMedia("(max-width: 900px)").matches;
+    }
 
-  document.getElementById("modal").classList.add("open");
-  document.getElementById("backdrop").style.display = "block";
-}
+    function getHitPadding() {
+      return isMobileView() ? MOBILE_HIT_PADDING : DESKTOP_HIT_PADDING;
+    }
 
-function closeModal() {
-  document.getElementById("modal").classList.remove("open");
-  document.getElementById("backdrop").style.display = "none";
-}
+    function getZoneStyle(isSelected = false) {
+      if (SHOW_OVERLAY) {
+        return {
+          fill: isSelected ? "var(--selected-fill)" : "var(--overlay-fill)",
+          stroke: isSelected ? "var(--selected-stroke)" : "var(--overlay-stroke)",
+          strokeWidth: isSelected ? "2" : "1"
+        };
+      }
 
-/* ✅ SEARCH */
-document.getElementById("search").oninput = (e) => {
-  let val = e.target.value.toLowerCase();
+      return {
+        fill: "transparent",
+        stroke: "transparent",
+        strokeWidth: "0"
+      };
+    }
 
-  document.querySelectorAll("#overlay rect").forEach(r => {
-    let id = r.dataset.id;
-    let match = id.toLowerCase().includes(val);
+    function applyZoneStyle(el, isSelected = false) {
+      const style = getZoneStyle(isSelected);
+      el.setAttribute("fill", style.fill);
+      el.setAttribute("stroke", style.stroke);
+      el.setAttribute("stroke-width", style.strokeWidth);
+    }
 
-    r.style.opacity = match || !val ? 1 : 0.1;
-  });
-};
+    function makeBooth(id, title, section, x, y, w, h, extra = {}) {
+      return {
+        id,
+        title,
+        section,
+        description: extra.description || `Booth ${id}`,
+        notes: extra.notes || "",
+        contact: extra.contact || "",
+        status: extra.status || "Open",
+        coords: { x, y, w, h },
+        link: extra.link || ""
+      };
+    }
 
-/* ✅ JUMP */
-let jump = document.getElementById("jump");
+    function buildBooths() {
+      zones.clear();
 
-Object.keys(zones).sort().forEach(id => {
-  let opt = document.createElement("option");
-  opt.value = id;
-  opt.textContent = id;
-  jump.appendChild(opt);
-});
+      const pad = getHitPadding();
 
-jump.onchange = () => {
-  if (jump.value) openModal(jump.value);
-};
+      ["A", "B", "C", "D"].forEach(section => {
+        const s = layout[section];
 
-</script>
+        for (let i = 0; i < s.rows; i++) {
+          const num = s.rows - i;
+          const id = section + num;
 
+          const x = s.x - pad;
+          const y = (s.y + (i * s.h)) - pad;
+          const w = s.w + (pad * 2);
+          const h = s.h + (pad * 2);
+
+          zones.set(id, makeBooth(id, id, section, x, y, w, h));
+        }
+      });
+
+      /* Interactive non-booth features */
+      zones.set("REGISTRATION", {
+        id: "REGISTRATION",
+        title: "Registration",
+        section: "North Entrance",
+        description: "Main check-in area.",
+        notes: "Add hours or volunteer notes here.",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 565, y: 110, w: 300, h: 98 }
+      });
+
+      zones.set("FIRST_AID", {
+        id: "FIRST_AID",
+        title: "First Aid",
+        section: "Northwest",
+        description: "Medical support area.",
+        notes: "",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 437, y: 112, w: 96, h: 96 }
+      });
+
+      zones.set("TRACK_1", {
+        id: "TRACK_1",
+        title: "Pinewood Derby Track 1",
+        section: "Center Floor",
+        description: "Upper race track area.",
+        notes: "",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 621, y: 410, w: 244, h: 108 }
+      });
+
+      zones.set("TRACK_2", {
+        id: "TRACK_2",
+        title: "Pinewood Derby Track 2",
+        section: "Center Floor",
+        description: "Lower race track area.",
+        notes: "",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 621, y: 1189, w: 244, h: 104 }
+      });
+
+      zones.set("VIP_AREA", {
+        id: "VIP_AREA",
+        title: "VIP Area",
+        section: "Southwest",
+        description: "VIP reserved area.",
+        notes: "",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 383, y: 1121, w: 139, h: 660 }
+      });
+
+      zones.set("EVENT_STAGE", {
+        id: "EVENT_STAGE",
+        title: "Event Stage Area",
+        section: "South Center",
+        description: "Stage / ceremony area.",
+        notes: "",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 640, y: 1543, w: 518, h: 285 }
+      });
+
+      zones.set("LOADING", {
+        id: "LOADING",
+        title: "Event Loading",
+        section: "East Side",
+        description: "Loading / support area.",
+        notes: "",
+        contact: "",
+        status: "Feature",
+        link: "",
+        coords: { x: 1048, y: 775, w: 198, h: 156 }
+      });
+
+      /* Customize your real assignments here */
+      const customAssignments = {
+        A1: {
+          title: "Booth A1",
+          description: "Assign this booth",
+          notes: "Replace with your real assignment data."
+        },
+        B16: {
+          title: "Booth B16",
+          description: "Assign this booth"
+        },
+        C18: {
+          title: "Booth C18",
+          description: "Assign this booth"
+        },
+        D1: {
+          title: "Booth D1",
+          description: "Assign this booth"
+        },
+        REGISTRATION: {
+          notes: "Check-in opens here."
+        }
+      };
+
+      Object.entries(customAssignments).forEach(([id, data]) => {
+        if (zones.has(id)) {
+          zones.set(id, { ...zones.get(id), ...data });
+        }
+      });
+    }
+
+    function drawZones() {
+      svg.innerHTML = "";
+
+      zones.forEach((zone) => {
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", zone.coords.x);
+        rect.setAttribute("y", zone.coords.y);
+        rect.setAttribute("width", zone.coords.w);
+        rect.setAttribute("height", zone.coords.h);
+        rect.setAttribute("rx", "3");
+        rect.setAttribute("ry", "3");
+        rect.setAttribute("class", "zone");
+        rect.setAttribute("tabindex", "0");
+        rect.dataset.id = zone.id;
+
+        applyZoneStyle(rect, zone.id === currentSelection);
+
+        rect.addEventListener("click", (e) => {
+          e.preventDefault();
+          selectZone(zone.id);
+        });
+
+        rect.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectZone(zone.id);
+          }
+        });
+
+        svg.appendChild(rect);
+      });
+    }
+
+    function populateJumpMenu() {
+      jumpMenu.innerHTML = `<option value="">Jump to booth or feature</option>`;
+
+      [...zones.values()]
+        .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
+        .forEach(zone => {
+          const opt = document.createElement("option");
+          opt.value = zone.id;
+          opt.textContent = `${zone.id} — ${zone.title}`;
+          jumpMenu.appendChild(opt);
+        });
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function openModal() {
+      modalBackdrop.classList.add("open");
+      modalSheet.classList.add("open");
+      modalSheet.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove("open");
+      modalSheet.classList.remove("open");
+      modalSheet.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+    }
+
+    function renderModal(zone) {
+      modalTitle.textContent = `${zone.id} — ${zone.title}`;
+      modalSubtitle.textContent = `${zone.section} • ${zone.status}`;
+
+      const details = [
+        { label: "Description", value: zone.description || "" },
+        { label: "Notes", value: zone.notes || "No notes added." }
+      ];
+
+      if (zone.contact) {
+        details.push({ label: "Contact", value: zone.contact });
+      }
+
+      if (zone.link) {
+        details.push({
+          label: "Link",
+          value: `<a href="${escapeHtml(zone.link)}" target="_blank" rel="noopener" style="color:#ffffff;">Open related link</a>`
+        });
+      }
+
+      modalBody.innerHTML = `
+        <ul class="detail-list">
+          ${details.map(item => `
+            <li class="detail-item">
+              <span class="detail-label">${escapeHtml(item.label)}</span>
+              <div class="detail-value">${item.value}</div>
+            </li>
+          `).join("")}
+        </ul>
+      `;
+    }
+
+    function selectZone(id) {
+      const zone = zones.get(id);
+      if (!zone) return;
+
+      currentSelection = id;
+
+      svg.querySelectorAll(".zone").forEach(el => {
+        applyZoneStyle(el, el.dataset.id === id);
+      });
+
+      renderModal(zone);
+      openModal();
+      jumpMenu.value = id;
+      statusBar.textContent = `Selected ${zone.id} — ${zone.title}`;
+      history.replaceState(null, "", `#${encodeURIComponent(id)}`);
+    }
+
+    function clearSelection() {
+      currentSelection = "";
+      svg.querySelectorAll(".zone").forEach(el => applyZoneStyle(el, false));
+      jumpMenu.value = "";
+      searchBox.value = "";
+      svg.querySelectorAll(".zone").forEach(el => {
+        el.style.opacity = "1";
+        el.style.pointerEvents = "auto";
+      });
+      statusBar.textContent = "Tap a booth or feature to open details.";
+      history.replaceState(null, "", location.pathname + location.search);
+      closeModal();
+    }
+
+    function searchZones(query) {
+      const q = (query || "").toLowerCase().trim();
+
+      if (!q) {
+        svg.querySelectorAll(".zone").forEach(el => {
+          el.style.opacity = "1";
+          el.style.pointerEvents = "auto";
+        });
+        statusBar.textContent = currentSelection
+          ? `Selected ${currentSelection}`
+          : "Tap a booth or feature to open details.";
+        return;
+      }
+
+      let firstMatch = "";
+      let count = 0;
+
+      zones.forEach((zone, id) => {
+        const haystack = [
+          zone.id,
+          zone.title,
+          zone.section,
+          zone.description,
+          zone.notes,
+          zone.contact,
+          zone.status
+        ].join(" ").toLowerCase();
+
+        const match = haystack.includes(q);
+        const el = svg.querySelector(`.zone[data-id="${CSS.escape(id)}"]`);
+
+        if (el) {
+          el.style.opacity = match ? "1" : "0.08";
+          el.style.pointerEvents = match ? "auto" : "none";
+        }
+
+        if (match) {
+          count++;
+          if (!firstMatch) firstMatch = id;
+        }
+      });
+
+      statusBar.textContent = count
+        ? `${count} match${count === 1 ? "" : "es"} found`
+        : "No matches found";
+
+      if (count === 1 && firstMatch) {
+        selectZone(firstMatch);
+      }
+    }
+
+    function init() {
+      buildBooths();
+      drawZones();
+      populateJumpMenu();
+
+      searchBox.addEventListener("input", (e) => {
+        searchZones(e.target.value);
+      });
+
+      jumpMenu.addEventListener("change", () => {
+        if (jumpMenu.value) {
+          selectZone(jumpMenu.value);
+        }
+      });
+
+      clearBtn.addEventListener("click", clearSelection);
+
+      modalBackdrop.addEventListener("click", closeModal);
+      closeModalBtn.addEventListener("click", closeModal);
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+      });
+
+      const hash = decodeURIComponent(location.hash.replace(/^#/, ""));
+      if (hash && zones.has(hash)) {
+        selectZone(hash);
+      }
+
+      window.addEventListener("resize", () => {
+        const selected = currentSelection;
+        buildBooths();
+        drawZones();
+        populateJumpMenu();
+
+        if (selected && zones.has(selected)) {
+          currentSelection = selected;
+          svg.querySelectorAll(".zone").forEach(el => {
+            applyZoneStyle(el, el.dataset.id === selected);
+          });
+          jumpMenu.value = selected;
+        }
+      });
+    }
+
+    init();
+  </script>
 </body>
 </html>
 ``
